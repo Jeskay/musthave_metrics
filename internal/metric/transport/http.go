@@ -9,10 +9,9 @@ import (
 
 func NewHandler(svc *metric.MetricService) http.Handler {
 	m := http.NewServeMux()
-	m.Handle(`/update/gauge/`, http.StripPrefix(`/update/gauge/`, handlers.NewGaugeMetricHandler(svc)))
-	m.Handle(`/update/counter/`, http.StripPrefix(`/update/counter/`, handlers.NewCounterMetricHandler(svc)))
+	m.Handle(`/update/{type}/{name}/{value}`, handlers.NewUpdateMetricHandler(svc))
 	m.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 	})
 	return m
 }
