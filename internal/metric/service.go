@@ -1,6 +1,6 @@
 package metric
 
-import "musthave_metrics/internal"
+import "github.com/Jeskay/musthave_metrics/internal"
 
 type MetricService struct {
 	storage *internal.MemStorage

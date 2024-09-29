@@ -1,9 +1,10 @@
 package transport
 
 import (
-	"musthave_metrics/internal/metric"
-	"musthave_metrics/internal/metric/handlers"
 	"net/http"
+
+	"github.com/Jeskay/musthave_metrics/internal/metric"
+	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
 )
 
 func NewHandler(svc *metric.MetricService) http.Handler {

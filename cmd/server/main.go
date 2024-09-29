@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
-	"musthave_metrics/internal/metric"
-	"musthave_metrics/internal/metric/transport"
 	"net/http"
 	"os"
+
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport"
+
+	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
 
 func main() {

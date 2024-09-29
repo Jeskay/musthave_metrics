@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"musthave_metrics/internal/metric"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
 
 type GaugeMetricHandler struct {
