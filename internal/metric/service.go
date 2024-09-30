@@ -14,14 +14,9 @@ func NewMetricService() *MetricService {
 }
 
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
-	s.storage.Add(key, value)
+	s.storage.Set(key, internal.Metric{Type: internal.GaugeMetric, Value: value})
 }
 
 func (s *MetricService) SetCounterMetric(key string, value int64) {
-	s.storage.Add(key, value)
-}
-
-func (s *MetricService) GetGaugeMetric(key string) (value float64, exist bool) {
-	value, exist = s.storage.Get(key).(float64)
-	return
+	s.storage.Set(key, internal.Metric{Type: internal.CounterMetric, Value: value})
 }

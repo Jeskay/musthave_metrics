@@ -1,19 +1,19 @@
 package internal
 
 type MemStorage struct {
-	data map[string]interface{}
+	data map[string]Metric
 }
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		data: make(map[string]interface{}),
+		data: make(map[string]Metric),
 	}
 }
 
-func (ms *MemStorage) Add(key string, value interface{}) {
+func (ms *MemStorage) Set(key string, value Metric) {
 	ms.data[key] = value
 }
 
-func (ms *MemStorage) Get(key string) interface{} {
+func (ms *MemStorage) Get(key string) Metric {
 	return ms.data[key]
 }
