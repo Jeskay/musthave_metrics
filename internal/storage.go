@@ -14,6 +14,7 @@ func (ms *MemStorage) Set(key string, value Metric) {
 	ms.data[key] = value
 }
 
-func (ms *MemStorage) Get(key string) Metric {
-	return ms.data[key]
+func (ms *MemStorage) Get(key string) (Metric, bool) {
+	m, ok := ms.data[key]
+	return m, ok
 }

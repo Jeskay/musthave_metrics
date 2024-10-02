@@ -36,13 +36,15 @@ func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- bool {
 	svc.monitorTick = time.NewTicker(interval)
 	quit := make(chan bool)
 	go func() {
+		mStats := &runtime.MemStats{}
 		for {
 			select {
 			case <-quit:
 				svc.monitorTick.Stop()
 				return
 			case t := <-svc.monitorTick.C:
-				svc.CollectMetrics()
+				runtime.ReadMemStats(mStats)
+				svc.CollectMetrics(mStats)
 				fmt.Println("Tick at ", t)
 			}
 		}
@@ -56,6 +58,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
 		return nil
 	}
 	quit := make(chan bool)
+	reqs := make(chan *http.Request)
 	svc.updateTick = time.NewTicker(interval)
 	go func() {
 		for {
@@ -65,16 +68,16 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
 				return
 			case t := <-svc.monitorTick.C:
 				fmt.Println("Tick at ", t)
-				svc.SendMetrics()
+				go svc.PrepareMetrics(reqs)
+				svc.SendMetrics(reqs)
 			}
 		}
 	}()
 	return quit
 }
 
-func (svc *AgentService) CollectMetrics() {
-	mStats := &runtime.MemStats{}
-	runtime.ReadMemStats(mStats)
+func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
+	svc.pollCount++
 	svc.storage.Set("Alloc", internal.Metric{Type: internal.GaugeMetric, Value: mStats.Alloc})
 	svc.storage.Set("BuckHashSys", internal.Metric{Type: internal.GaugeMetric, Value: mStats.BuckHashSys})
 	svc.storage.Set("Frees", internal.Metric{Type: internal.GaugeMetric, Value: mStats.Frees})
@@ -106,12 +109,15 @@ func (svc *AgentService) CollectMetrics() {
 	svc.storage.Set("PollCount", internal.Metric{Type: internal.CounterMetric, Value: svc.pollCount})
 	rValue := math.SmallestNonzeroFloat64 + rand.Float64()*(math.MaxFloat64-math.SmallestNonzeroFloat64)
 	svc.storage.Set("RandomValue", internal.Metric{Type: internal.GaugeMetric, Value: rValue})
-	svc.pollCount++
+
 }
 
-func (svc *AgentService) SendMetrics() {
+func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 	for _, metricName := range metricList {
-		metric := svc.storage.Get(metricName)
+		metric, ok := svc.storage.Get(metricName)
+		if !ok {
+			continue
+		}
 		url := svc.serverAddr + "/update/"
 		if metric.Type == internal.CounterMetric {
 			v, ok := metric.Value.(int64)
@@ -129,12 +135,21 @@ func (svc *AgentService) SendMetrics() {
 		r, err := http.NewRequest(http.MethodPost, url, nil)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
-		res, err := http.DefaultClient.Do(r)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println(res)
+		requests <- r
 	}
+	close(requests)
+}
 
+func (svc *AgentService) SendMetrics(requests chan *http.Request) {
+	for req := range requests {
+		go func(req *http.Request) {
+			r, err := http.DefaultClient.Do(req)
+			if err != nil {
+				fmt.Println("Error", err)
+			}
+			fmt.Println(r)
+		}(req)
+	}
 }

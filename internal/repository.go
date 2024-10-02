@@ -2,7 +2,7 @@ package internal
 
 type Repositories interface {
 	Set(key string, value Metric)
-	Get(key string) Metric
+	Get(key string) (Metric, bool)
 }
 
 type MetricType string
