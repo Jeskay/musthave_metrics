@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"math/rand/v2"
 	"net/http"
@@ -145,11 +146,16 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	for req := range requests {
 		go func(req *http.Request) {
-			r, err := http.DefaultClient.Do(req)
+			res, err := http.DefaultClient.Do(req)
 			if err != nil {
-				fmt.Println("Error", err)
+				fmt.Println("Error ", err)
 			}
-			fmt.Println(r)
+
+			if _, err = io.Copy(io.Discard, res.Body); err != nil {
+				fmt.Println("Error ", err)
+			}
+			res.Body.Close()
+			fmt.Println(res)
 		}(req)
 	}
 }
