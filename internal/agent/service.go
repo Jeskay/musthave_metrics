@@ -58,7 +58,6 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
 		return nil
 	}
 	quit := make(chan bool)
-	reqs := make(chan *http.Request)
 	svc.updateTick = time.NewTicker(interval)
 	go func() {
 		for {
@@ -68,6 +67,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
 				return
 			case t := <-svc.monitorTick.C:
 				fmt.Println("Tick at ", t)
+				reqs := make(chan *http.Request)
 				go svc.PrepareMetrics(reqs)
 				svc.SendMetrics(reqs)
 			}
