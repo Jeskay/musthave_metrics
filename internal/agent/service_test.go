@@ -64,12 +64,12 @@ func TestPrepareMetrics(t *testing.T) {
 	}
 	reqs := make(chan *http.Request)
 	svc := NewAgentService("localhost", ":3000")
-	svc.storage.Set("Alloc", internal.Metric{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
-	svc.storage.Set("HeapIdle", internal.Metric{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
-	svc.storage.Set("Frees", internal.Metric{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
-	svc.storage.Set("PollCount", internal.Metric{Type: internal.CounterMetric, Value: int64(1)})
-	svc.storage.Set("GCCPUFraction", internal.Metric{Type: internal.GaugeMetric, Value: mStats.GCCPUFraction})
-	svc.storage.Set("HeapSys", internal.Metric{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
+	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
+	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
+	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
+	svc.storage.Set("PollCount", internal.MetricValue{Type: internal.CounterMetric, Value: int64(1)})
+	svc.storage.Set("GCCPUFraction", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.GCCPUFraction})
+	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
 	go svc.PrepareMetrics(reqs)
 	count := 0
 	for r := range reqs {

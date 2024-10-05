@@ -19,10 +19,38 @@ func NewMetricService() *MetricService {
 
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
 	fmt.Printf("Key: %s		Value: %f", key, value)
-	s.storage.Set(key, internal.Metric{Type: internal.GaugeMetric, Value: value})
+	s.storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
 }
 
 func (s *MetricService) SetCounterMetric(key string, value int64) {
 	fmt.Printf("Key: %s		Value: %d", key, value)
-	s.storage.Set(key, internal.Metric{Type: internal.CounterMetric, Value: value})
+	s.storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
+}
+
+func (s *MetricService) GetCounterMetric(key string) (bool, int64) {
+	m, ok := s.storage.Get(key)
+	if !ok {
+		return false, 0
+	}
+	if m.Type != internal.CounterMetric {
+		return false, 0
+	}
+	value, ok := m.Value.(int64)
+	return ok, value
+}
+
+func (s *MetricService) GetGaugeMetric(key string) (bool, float64) {
+	m, ok := s.storage.Get(key)
+	if !ok {
+		return false, 0
+	}
+	if m.Type != internal.GaugeMetric {
+		return false, 0
+	}
+	value, ok := m.Value.(float64)
+	return ok, value
+}
+
+func (s *MetricService) GetAllMetrics() []*internal.Metric {
+	return s.storage.GetAll()
 }
