@@ -22,10 +22,10 @@ type AgentService struct {
 	serverAddr  string
 }
 
-func NewAgentService(host string, port string) *AgentService {
+func NewAgentService(address string) *AgentService {
 	service := &AgentService{
 		storage:    internal.NewMemStorage(),
-		serverAddr: "http://" + host + port,
+		serverAddr: "http://" + address,
 	}
 	return service
 }

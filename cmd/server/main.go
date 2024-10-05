@@ -10,7 +10,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
 
-var address string = ":8080"
+var address string = "localhost:8080"
 
 func main() {
 	service := metric.NewMetricService()
