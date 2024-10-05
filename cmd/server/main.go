@@ -3,20 +3,23 @@ package main
 import (
 	"errors"
 	"flag"
+	"log"
 	"regexp"
 
+	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/caarlos0/env"
 
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
 
-var address string = "localhost:8080"
+var conf = config.NewServerConfig()
 
 func main() {
 	service := metric.NewMetricService()
 	r := routes.Init(service)
 
-	r.Run(address)
+	r.Run(conf.Address)
 }
 
 func init() {
@@ -28,8 +31,12 @@ func init() {
 		if !ok {
 			return errors.New("invalid address format")
 		}
-		address = s
+		conf.Address = s
 		return err
 	})
+
 	flag.Parse()
+	if err := env.Parse(conf); err != nil {
+		log.Fatal(err)
+	}
 }
