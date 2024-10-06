@@ -3,8 +3,11 @@ package main
 import (
 	"errors"
 	"flag"
+	"html/template"
+	"io"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
@@ -16,8 +19,12 @@ import (
 var conf = config.NewServerConfig()
 
 func main() {
+	t, err := loadTemplate()
+	if err != nil {
+		log.Fatal(err)
+	}
 	service := metric.NewMetricService()
-	r := routes.Init(service)
+	r := routes.Init(service, t)
 
 	r.Run(conf.Address)
 }
@@ -39,4 +46,22 @@ func init() {
 	if err := env.Parse(conf); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func loadTemplate() (*template.Template, error) {
+	t := template.New("")
+	for name, file := range Assets.Files {
+		if file.IsDir() || !strings.HasSuffix(name, ".tmpl") {
+			continue
+		}
+		h, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+		t, err = t.New(name).Parse(string(h))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return t, nil
 }
