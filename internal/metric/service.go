@@ -24,6 +24,15 @@ func (s *MetricService) SetGaugeMetric(key string, value float64) {
 
 func (s *MetricService) SetCounterMetric(key string, value int64) {
 	fmt.Printf("Key: %s		Value: %d", key, value)
+
+	v, ok := s.storage.Get(key)
+	if ok {
+		if old, ok := v.Value.(int64); ok {
+			v.Value = old + value
+			s.storage.Set(key, v)
+			return
+		}
+	}
 	s.storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
 }
 
