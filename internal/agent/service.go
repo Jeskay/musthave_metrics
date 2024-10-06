@@ -38,15 +38,17 @@ func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- bool {
 	quit := make(chan bool)
 	go func() {
 		mStats := &runtime.MemStats{}
+	loop:
 		for {
+			runtime.ReadMemStats(mStats)
+			svc.CollectMetrics(mStats)
 			select {
+			case t := <-svc.monitorTick.C:
+				fmt.Println("Tick at ", t)
+				continue
 			case <-quit:
 				svc.monitorTick.Stop()
-				return
-			case t := <-svc.monitorTick.C:
-				runtime.ReadMemStats(mStats)
-				svc.CollectMetrics(mStats)
-				fmt.Println("Tick at ", t)
+				break loop
 			}
 		}
 	}()
@@ -61,16 +63,20 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
 	quit := make(chan bool)
 	svc.updateTick = time.NewTicker(interval)
 	go func() {
+
+	loop:
 		for {
+			reqs := make(chan *http.Request)
+			go svc.PrepareMetrics(reqs)
+			svc.SendMetrics(reqs)
 			select {
-			case <-quit:
-				svc.updateTick.Stop()
-				return
 			case t := <-svc.monitorTick.C:
 				fmt.Println("Tick at ", t)
-				reqs := make(chan *http.Request)
-				go svc.PrepareMetrics(reqs)
-				svc.SendMetrics(reqs)
+				continue
+			case <-quit:
+				svc.updateTick.Stop()
+				break loop
+
 			}
 		}
 	}()
