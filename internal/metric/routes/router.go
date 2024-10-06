@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"html/template"
 	"net/http"
 
 	"github.com/Jeskay/musthave_metrics/internal/metric"
@@ -8,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Init(svc *metric.MetricService) *gin.Engine {
+func Init(svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
-	r.LoadHTMLGlob("../../templates/*.tmpl")
+	r.SetHTMLTemplate(template)
 
 	v1 := r.Group("/update")
 	{

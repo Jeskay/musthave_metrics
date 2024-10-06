@@ -38,7 +38,7 @@ func ListMetrics(svc *metric.MetricService) gin.HandlerFunc {
 			}
 		}
 
-		c.HTML(http.StatusOK, "list.tmpl", gin.H{
+		c.HTML(http.StatusOK, "/templates/list.tmpl", gin.H{
 			"Metrics": metrics,
 			"title":   "List of Metrics",
 		})
