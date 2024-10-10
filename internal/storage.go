@@ -3,37 +3,31 @@ package internal
 import "sync"
 
 type MemStorage struct {
-	sync.RWMutex
-	data map[string]MetricValue
+	data sync.Map
 }
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		data: make(map[string]MetricValue),
+		data: sync.Map{},
 	}
 }
 
 func (ms *MemStorage) Set(key string, value MetricValue) {
-	ms.Lock()
-	ms.data[key] = value
-	ms.Unlock()
+	ms.data.Store(key, value)
 }
 
 func (ms *MemStorage) Get(key string) (MetricValue, bool) {
-	ms.RLock()
-	m, ok := ms.data[key]
-	ms.RUnlock()
-	return m, ok
+	if m, ok := ms.data.Load(key); ok {
+		return m.(MetricValue), ok
+	}
+	return MetricValue{}, false
 }
 
 func (ms *MemStorage) GetAll() []*Metric {
-	m := make([]*Metric, len(ms.data))
-	ms.RLock()
-	counter := 0
-	for name, metric := range ms.data {
-		m[counter] = &Metric{Name: name, Value: metric}
-		counter++
-	}
-	ms.RUnlock()
+	m := make([]*Metric, 0)
+	ms.data.Range(func(key, value any) bool {
+		m = append(m, &Metric{Name: key.(string), Value: value.(MetricValue)})
+		return true
+	})
 	return m
 }

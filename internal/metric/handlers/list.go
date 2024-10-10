@@ -15,27 +15,28 @@ type MetricString struct {
 	Value string
 }
 
+func NewMetricString(metric *internal.Metric) MetricString {
+	mStr := MetricString{
+		Name: metric.Name,
+		Type: string(metric.Value.Type),
+	}
+	if metric.Value.Type == internal.CounterMetric {
+		v := metric.Value.Value.(int64)
+		mStr.Value = strconv.FormatInt(v, 10)
+	} else {
+		v := metric.Value.Value.(float64)
+		mStr.Value = strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	return mStr
+}
+
 func ListMetrics(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		list := svc.GetAllMetrics()
 		metrics := make([]MetricString, len(list))
 		for i, m := range list {
-			if m.Value.Type == internal.CounterMetric {
-				v := m.Value.Value.(int64)
-				metrics[i] = MetricString{
-					Name:  m.Name,
-					Type:  string(m.Value.Type),
-					Value: strconv.FormatInt(v, 10),
-				}
-			} else if m.Value.Type == internal.GaugeMetric {
-				v := m.Value.Value.(float64)
-				metrics[i] = MetricString{
-					Name:  m.Name,
-					Type:  string(m.Value.Type),
-					Value: strconv.FormatFloat(v, 'f', -1, 64),
-				}
-			}
+			metrics[i] = NewMetricString(m)
 		}
 
 		c.HTML(http.StatusOK, "/templates/list.tmpl", gin.H{

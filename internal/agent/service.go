@@ -30,12 +30,12 @@ func NewAgentService(address string) *AgentService {
 	return service
 }
 
-func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- bool {
+func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{} {
 	if svc.monitorTick != nil {
 		return nil
 	}
 	svc.monitorTick = time.NewTicker(interval)
-	quit := make(chan bool)
+	quit := make(chan struct{})
 	go func() {
 		mStats := &runtime.MemStats{}
 	loop:
@@ -56,11 +56,11 @@ func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- bool {
 	return quit
 }
 
-func (svc *AgentService) StartSending(interval time.Duration) chan<- bool {
+func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	if svc.updateTick != nil {
 		return nil
 	}
-	quit := make(chan bool)
+	quit := make(chan struct{})
 	svc.updateTick = time.NewTicker(interval)
 	go func() {
 

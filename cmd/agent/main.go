@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"regexp"
 	"syscall"
-	"time"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/agent"
@@ -19,15 +18,15 @@ var conf = config.NewAgentConfig()
 
 func main() {
 	sig := make(chan os.Signal, 1)
-	var endMonitor, endSender chan<- bool
+	var endMonitor, endSender chan<- struct{}
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	svc := agent.NewAgentService(conf.Address)
-	endMonitor = svc.StartMonitoring(time.Second * time.Duration(conf.ReportInterval))
-	endSender = svc.StartSending(time.Second * time.Duration(conf.PollInterval))
+	endMonitor = svc.StartMonitoring(conf.GetReportInterval())
+	endSender = svc.StartSending(conf.GetPollInterval())
 	<-sig
-	endMonitor <- true
-	endSender <- true
+	endMonitor <- struct{}{}
+	endSender <- struct{}{}
 	os.Exit(1)
 }
 
