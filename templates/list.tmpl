@@ -1,0 +1,14 @@
+<html>
+    <h1>
+        {{ .title }}
+    </h1>
+    <ol>
+    {{ range .Metrics }}
+        <li>
+        Name: {{.Name}}<br>
+        Type: {{.Type}}<br>
+        Value: {{.Value}}<br>
+        </li>
+    {{ end }}
+    </ol>
+</html>
