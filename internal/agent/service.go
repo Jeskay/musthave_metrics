@@ -121,32 +121,38 @@ func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 }
 
 func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
+	var wg sync.WaitGroup
 	for _, metricName := range metricList {
-		metric, ok := svc.storage.Get(metricName)
-		if !ok {
-			continue
-		}
-		url := svc.serverAddr + "/update/"
-		if metric.Type == internal.CounterMetric {
-			v, ok := metric.Value.(int64)
+		wg.Add(1)
+		go func() {
+			metric, ok := svc.storage.Get(metricName)
 			if !ok {
-				v = 0
+				return
 			}
-			url += path.Join(string(metric.Type), metricName, strconv.FormatInt(v, 10))
-		} else if metric.Type == internal.GaugeMetric {
-			v, ok := metric.Value.(float64)
-			if !ok {
-				v = 0
+			url := svc.serverAddr + "/update/"
+			if metric.Type == internal.CounterMetric {
+				v, ok := metric.Value.(int64)
+				if !ok {
+					v = 0
+				}
+				url += path.Join(string(metric.Type), metricName, strconv.FormatInt(v, 10))
+			} else if metric.Type == internal.GaugeMetric {
+				v, ok := metric.Value.(float64)
+				if !ok {
+					v = 0
+				}
+				url += path.Join(string(metric.Type), metricName, strconv.FormatFloat(v, 'f', -1, 64))
 			}
-			url += path.Join(string(metric.Type), metricName, strconv.FormatFloat(v, 'f', -1, 64))
-		}
-		r, err := http.NewRequest(http.MethodPost, url, nil)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		requests <- r
+			r, err := http.NewRequest(http.MethodPost, url, nil)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			requests <- r
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 	close(requests)
 }
 
