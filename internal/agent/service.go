@@ -3,6 +3,7 @@ package agent
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"net/http"
@@ -21,12 +22,14 @@ type AgentService struct {
 	updateTick  *time.Ticker
 	pollCount   int64
 	serverAddr  string
+	logger      *slog.Logger
 }
 
-func NewAgentService(address string) *AgentService {
+func NewAgentService(address string, logger slog.Handler) *AgentService {
 	service := &AgentService{
 		storage:    internal.NewMemStorage(),
 		serverAddr: "http://" + address,
+		logger:     slog.New(logger),
 	}
 	return service
 }
@@ -45,7 +48,7 @@ func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{}
 			svc.CollectMetrics(mStats)
 			select {
 			case t := <-svc.monitorTick.C:
-				fmt.Println("Tick at ", t)
+				svc.logger.Debug(fmt.Sprintf("Tick at %s", t.String()))
 				continue
 			case <-quit:
 				svc.monitorTick.Stop()
@@ -72,7 +75,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 			svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
-				fmt.Println("Tick at ", t)
+				svc.logger.Debug(fmt.Sprintf("Tick at %s", t.String()))
 				continue
 			case <-quit:
 				svc.updateTick.Stop()
@@ -145,7 +148,7 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 			}
 			r, err := http.NewRequest(http.MethodPost, url, nil)
 			if err != nil {
-				fmt.Println(err)
+				svc.logger.Error(err.Error())
 				return
 			}
 			requests <- r
@@ -163,12 +166,12 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 		go func(req *http.Request) {
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
-				fmt.Println("Error ", err)
+				svc.logger.Error(err.Error())
 				return
 			}
 
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
-				fmt.Println("Error ", err)
+				svc.logger.Error(err.Error())
 			}
 			res.Body.Close()
 			wg.Done()

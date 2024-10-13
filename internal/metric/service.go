@@ -2,28 +2,32 @@ package metric
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/Jeskay/musthave_metrics/internal"
 )
 
 type MetricService struct {
 	storage *internal.MemStorage
+	logger  *slog.Logger
 }
 
-func NewMetricService() *MetricService {
+func NewMetricService(logger slog.Handler) *MetricService {
 	service := &MetricService{
 		storage: internal.NewMemStorage(),
+		logger:  slog.New(logger),
 	}
 	return service
 }
 
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
-	fmt.Printf("Key: %s		Value: %f", key, value)
+	s.logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
+
 	s.storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
 }
 
 func (s *MetricService) SetCounterMetric(key string, value int64) {
-	fmt.Printf("Key: %s		Value: %d", key, value)
+	s.logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
 
 	v, ok := s.storage.Get(key)
 	if ok {

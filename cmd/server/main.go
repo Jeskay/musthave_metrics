@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 
@@ -23,7 +25,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	service := metric.NewMetricService()
+	logger := slog.NewTextHandler(os.Stdout, nil)
+	service := metric.NewMetricService(logger)
 	r := routes.Init(service, t)
 
 	r.Run(conf.Address)

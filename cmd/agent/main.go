@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"regexp"
@@ -21,7 +22,8 @@ func main() {
 	var endMonitor, endSender chan<- struct{}
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	svc := agent.NewAgentService(conf.Address)
+	logger := slog.NewTextHandler(os.Stdout, nil)
+	svc := agent.NewAgentService(conf.Address, logger)
 	endMonitor = svc.StartMonitoring(conf.GetReportInterval())
 	endSender = svc.StartSending(conf.GetPollInterval())
 	<-sig

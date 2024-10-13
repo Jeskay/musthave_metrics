@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"log/slog"
 	"net/http"
+	"os"
 	"runtime"
 	"testing"
 
@@ -18,7 +20,7 @@ func TestCollectMetrics(t *testing.T) {
 		GCCPUFraction: 10,
 		PauseNs:       [256]uint64{},
 	}
-	svc := NewAgentService("localhost:3000")
+	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
 	svc.CollectMetrics(mStats)
 	m, _ := svc.storage.Get("Alloc")
 	assert.Equal(t, m.Type, internal.GaugeMetric)
@@ -63,7 +65,7 @@ func TestPrepareMetrics(t *testing.T) {
 		HeapSys:       0,
 	}
 	reqs := make(chan *http.Request)
-	svc := NewAgentService("localhost:3000")
+	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
 	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
 	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
 	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
