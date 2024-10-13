@@ -9,6 +9,7 @@ import (
 	"path"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Jeskay/musthave_metrics/internal"
@@ -150,7 +151,9 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 }
 
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
+	var wg sync.WaitGroup
 	for req := range requests {
+		wg.Add(1)
 		go func(req *http.Request) {
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
@@ -162,7 +165,9 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 				fmt.Println("Error ", err)
 			}
 			res.Body.Close()
+			wg.Done()
 			fmt.Println(res)
 		}(req)
 	}
+	wg.Wait()
 }
