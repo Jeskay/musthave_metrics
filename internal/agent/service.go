@@ -72,7 +72,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 		for {
 			reqs := make(chan *http.Request)
 			go svc.PrepareMetrics(reqs)
-			svc.SendMetrics(reqs)
+			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
 				svc.logger.Debug(fmt.Sprintf("Tick at %s", t.String()))
@@ -128,6 +128,7 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 	for _, metricName := range metricList {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			metric, ok := svc.storage.Get(metricName)
 			if !ok {
 				return
@@ -152,7 +153,6 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 				return
 			}
 			requests <- r
-			wg.Done()
 		}()
 	}
 	wg.Wait()
@@ -164,6 +164,7 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	for req := range requests {
 		wg.Add(1)
 		go func(req *http.Request) {
+			defer wg.Done()
 			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				svc.logger.Error(err.Error())
@@ -174,8 +175,8 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 				svc.logger.Error(err.Error())
 			}
 			res.Body.Close()
-			wg.Done()
-			fmt.Println(res)
+
+			svc.logger.Debug(fmt.Sprintf("%v", res))
 		}(req)
 	}
 	wg.Wait()

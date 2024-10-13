@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAsyncAccessStorage(t *testing.T) {
 	var storage Repositories = NewMemStorage()
 	var values sync.Map
-	defer values.Clear()
 	for i := 0; i < 50; i++ {
 		valC := MetricValue{Type: CounterMetric, Value: int64(i)}
 		valG := MetricValue{Type: GaugeMetric, Value: float64(i)}
@@ -28,18 +28,23 @@ func TestAsyncAccessStorage(t *testing.T) {
 		return true
 	})
 	wg.Wait()
-	assert.Len(t, storage.GetAll(), 100)
+	require.Len(t, storage.GetAll(), 100)
+	res := make(chan bool)
 	values.Range(func(key, value any) bool {
-		wg.Add(1)
-		go func(k string, v MetricValue) {
+		go func(k string, v MetricValue, out chan<- bool) {
 			value, ok := storage.Get(k)
-			assert.True(t, ok)
-			assert.True(t, assert.ObjectsAreEqual(v, value))
-			wg.Done()
-		}(key.(string), value.(MetricValue))
+			if !ok {
+				out <- false
+				return
+			}
+			out <- assert.ObjectsAreEqual(v, value)
+		}(key.(string), value.(MetricValue), res)
 		return true
 	})
-	wg.Wait()
+	for i := 0; i < 100; i++ {
+		assert.True(t, <-res)
+	}
+	close(res)
 }
 
 func TestSeqSavingStorage(t *testing.T) {
