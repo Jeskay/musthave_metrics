@@ -6,14 +6,14 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
 	"github.com/caarlos0/env"
+	"go.uber.org/zap"
+	"go.uber.org/zap/exp/zapslog"
 
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
@@ -25,8 +25,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger := slog.NewTextHandler(os.Stdout, nil)
-	service := metric.NewMetricService(logger)
+	zapL := zap.Must(zap.NewProduction())
+	service := metric.NewMetricService(zapslog.NewHandler(zapL.Core(), nil))
 	r := routes.Init(service, t)
 
 	r.Run(conf.Address)

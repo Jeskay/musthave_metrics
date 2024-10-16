@@ -9,25 +9,25 @@ import (
 
 type MetricService struct {
 	storage *internal.MemStorage
-	logger  *slog.Logger
+	Logger  *slog.Logger
 }
 
 func NewMetricService(logger slog.Handler) *MetricService {
 	service := &MetricService{
 		storage: internal.NewMemStorage(),
-		logger:  slog.New(logger),
+		Logger:  slog.New(logger),
 	}
 	return service
 }
 
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
-	s.logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
+	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
 
 	s.storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
 }
 
 func (s *MetricService) SetCounterMetric(key string, value int64) {
-	s.logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
+	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
 
 	v, ok := s.storage.Get(key)
 	if ok {

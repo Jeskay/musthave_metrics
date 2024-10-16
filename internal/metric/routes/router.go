@@ -6,12 +6,14 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
+	"github.com/Jeskay/musthave_metrics/internal/metric/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 func Init(svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
+	r.Use(middleware.Logger(svc.Logger))
 
 	v1 := r.Group("/update")
 	{
