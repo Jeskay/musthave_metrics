@@ -19,8 +19,8 @@ func Logger(logger *slog.Logger) gin.HandlerFunc {
 		)
 		logger.Info(
 			"response",
-			slog.Int("status", ctx.Request.Response.StatusCode),
-			slog.Int64("size", ctx.Request.Response.ContentLength),
+			slog.Int("status", ctx.Writer.Status()),
+			slog.Int("size", ctx.Writer.Size()),
 		)
 	}
 }
