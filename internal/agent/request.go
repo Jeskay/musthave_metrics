@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"net/http"
 	"path"
@@ -30,6 +31,7 @@ func NewPlainPost(name string, metricValue internal.MetricValue, url string) (*h
 
 func NewJsonPost(name string, metricValue internal.MetricValue, url string) (req *http.Request, err error) {
 	var metrics dto.Metrics
+	var buf bytes.Buffer
 	if metricValue.Type == internal.CounterMetric {
 		metrics = dto.NewCounterMetrics(name, metricValue.Value.(int64))
 	} else if metricValue.Type == internal.GaugeMetric {
@@ -39,7 +41,16 @@ func NewJsonPost(name string, metricValue internal.MetricValue, url string) (req
 	if err != nil {
 		return nil, err
 	}
-	req, err = http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+	g := gzip.NewWriter(&buf)
+	if _, err := g.Write(data); err != nil {
+		return nil, err
+	}
+	if err = g.Close(); err != nil {
+		return nil, err
+	}
+	req, err = http.NewRequest(http.MethodPost, url, &buf)
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	return
 }

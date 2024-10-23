@@ -14,6 +14,8 @@ func Init(svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
 	r.Use(middleware.Logger(svc.Logger))
+	r.Use(middleware.Decoder())
+	r.Use(middleware.Encoder())
 
 	v1 := r.Group("/update")
 	{
