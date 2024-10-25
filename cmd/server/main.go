@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Jeskay/musthave_metrics/config"
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
 	"github.com/caarlos0/env"
 	"go.uber.org/zap"
@@ -26,13 +27,23 @@ func main() {
 		log.Fatal(err)
 	}
 	zapL := zap.Must(zap.NewProduction())
-	service := metric.NewMetricService(zapslog.NewHandler(zapL.Core(), nil))
+	fs, err := internal.NewFileStorage(conf.StoragePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, internal.NewMemStorage())
+
 	r := routes.Init(service, t)
 
 	r.Run(conf.Address)
+	service.StartSaving()
+	defer service.Close()
 }
 
 func init() {
+	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
+	flag.StringVar(&conf.StoragePath, "f", conf.StoragePath, "path to storage file")
+	flag.BoolVar(&conf.Restore, "r", conf.Restore, "load values from existing file on start")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
 			return nil
