@@ -42,7 +42,17 @@ func main() {
 
 func init() {
 	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
-	flag.StringVar(&conf.StoragePath, "f", conf.StoragePath, "path to storage file")
+	flag.Func("f", "storage file location", func(s string) error {
+		if len(s) == 0 {
+			return nil
+		}
+		ok, err := regexp.Match(`^(?:[\w]\:|\/)(\/[a-z_\-\s0-9\.]+)+\.(txt|dat|log)$`, []byte(s))
+		if !ok {
+			return errors.New("invalid path format")
+		}
+		conf.StoragePath = s
+		return err
+	})
 	flag.BoolVar(&conf.Restore, "r", conf.Restore, "load values from existing file on start")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
