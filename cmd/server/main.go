@@ -12,6 +12,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
 	"go.uber.org/zap"
 	"go.uber.org/zap/exp/zapslog"
@@ -46,12 +47,11 @@ func init() {
 		if len(s) == 0 {
 			return nil
 		}
-		ok, err := regexp.Match(`^(?:[\w]\:|\/)(\/[a-z_\-\s0-9\.]+)+\.(txt|dat|log)$`, []byte(s))
-		if !ok {
+		if !util.IsValidPath(s) {
 			return errors.New("invalid path format")
 		}
 		conf.StoragePath = s
-		return err
+		return nil
 	})
 	flag.BoolVar(&conf.Restore, "r", conf.Restore, "load values from existing file on start")
 	flag.Func("a", "server address", func(s string) error {
