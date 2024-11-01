@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/Jeskay/musthave_metrics/internal"
@@ -24,9 +25,9 @@ func TestCollectMetrics(t *testing.T) {
 	svc.CollectMetrics(mStats)
 	m, _ := svc.storage.Get("Alloc")
 	assert.Equal(t, m.Type, internal.GaugeMetric)
-	v, ok := m.Value.(uint64)
+	v, ok := m.Value.(float64)
 	require.True(t, ok)
-	assert.Equal(t, v, mStats.Alloc)
+	assert.Equal(t, v, float64(mStats.Alloc))
 	val, ok := svc.storage.Get("PauseNs")
 	assert.Zero(t, val)
 	assert.False(t, ok)
@@ -74,11 +75,18 @@ func TestPrepareMetrics(t *testing.T) {
 	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
 	go svc.PrepareMetrics(reqs)
 	count := 0
+	jsonCount := 0
 	for r := range reqs {
 		assert.Equal(t, http.MethodPost, r.Method)
 		req := r.URL.String()
-		assert.Contains(t, expected, req)
-		count++
+		if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			assert.Equal(t, "http://localhost:3000/update/", req)
+			jsonCount++
+		} else {
+			assert.Contains(t, expected, req)
+			count++
+		}
 	}
+	assert.Equal(t, len(expected), jsonCount)
 	assert.Equal(t, len(expected), count)
 }

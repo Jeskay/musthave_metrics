@@ -3,7 +3,10 @@ package config
 import "time"
 
 type ServerConfig struct {
-	Address string `env:"ADDRESS"`
+	Address      string `env:"ADDRESS"`
+	SaveInterval int    `env:"STORE_INTERVAL"`
+	StoragePath  string `env:"FILE_STORAGE_PATH"`
+	Restore      bool   `env:"RESTORE"`
 }
 
 type AgentConfig struct {
@@ -22,7 +25,10 @@ func (cfg *AgentConfig) GetPollInterval() time.Duration {
 
 func NewServerConfig() *ServerConfig {
 	return &ServerConfig{
-		Address: "localhost:8080",
+		Address:      "localhost:8080",
+		SaveInterval: 300,
+		StoragePath:  "/metrics.dat",
+		Restore:      true,
 	}
 }
 

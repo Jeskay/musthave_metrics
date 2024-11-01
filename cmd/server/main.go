@@ -6,14 +6,16 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"log/slog"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/Jeskay/musthave_metrics/config"
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
+	"go.uber.org/zap"
+	"go.uber.org/zap/exp/zapslog"
 
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
@@ -25,14 +27,33 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger := slog.NewTextHandler(os.Stdout, nil)
-	service := metric.NewMetricService(logger)
+	zapL := zap.Must(zap.NewProduction())
+	fs, err := internal.NewFileStorage(conf.StoragePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, internal.NewMemStorage())
+
 	r := routes.Init(service, t)
 
 	r.Run(conf.Address)
+	service.StartSaving()
+	defer service.Close()
 }
 
 func init() {
+	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
+	flag.Func("f", "storage file location", func(s string) error {
+		if len(s) == 0 {
+			return nil
+		}
+		if !util.IsValidPath(s) {
+			return errors.New("invalid path format")
+		}
+		conf.StoragePath = s
+		return nil
+	})
+	flag.BoolVar(&conf.Restore, "r", conf.Restore, "load values from existing file on start")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
 			return nil

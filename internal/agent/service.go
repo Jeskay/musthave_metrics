@@ -7,13 +7,12 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
-	"path"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 )
 
 type AgentService struct {
@@ -89,37 +88,37 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	svc.pollCount++
-	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.Alloc})
-	svc.storage.Set("BuckHashSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.BuckHashSys})
-	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.Frees})
-	svc.storage.Set("GCCPUFraction", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.GCCPUFraction})
-	svc.storage.Set("GCSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.GCSys})
-	svc.storage.Set("HeapAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapAlloc})
-	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapIdle})
-	svc.storage.Set("HeapInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapInuse})
-	svc.storage.Set("HeapObjects", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapObjects})
-	svc.storage.Set("HeapReleased", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapReleased})
-	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.HeapSys})
-	svc.storage.Set("LastGC", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.LastGC})
-	svc.storage.Set("Lookups", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.Lookups})
-	svc.storage.Set("MCacheInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.MCacheInuse})
-	svc.storage.Set("MCacheSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.MCacheSys})
-	svc.storage.Set("MSpanInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.MSpanInuse})
-	svc.storage.Set("MSpanSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.MSpanSys})
-	svc.storage.Set("Mallocs", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.Mallocs})
-	svc.storage.Set("NextGC", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.NextGC})
-	svc.storage.Set("NumForcedGC", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.NumForcedGC})
-	svc.storage.Set("NumGC", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.NumGC})
-	svc.storage.Set("OtherSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.OtherSys})
-	svc.storage.Set("PauseTotalNs", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.PauseTotalNs})
-	svc.storage.Set("StackInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.StackInuse})
-	svc.storage.Set("StackSys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.StackSys})
-	svc.storage.Set("Sys", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.Sys})
-	svc.storage.Set("TotalAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.TotalAlloc})
+	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
+	svc.storage.Set("BuckHashSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.BuckHashSys)})
+	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
+	svc.storage.Set("GCCPUFraction", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.GCCPUFraction)})
+	svc.storage.Set("GCSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.GCSys)})
+	svc.storage.Set("HeapAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapAlloc)})
+	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
+	svc.storage.Set("HeapInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapInuse)})
+	svc.storage.Set("HeapObjects", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapObjects)})
+	svc.storage.Set("HeapReleased", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapReleased)})
+	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
+	svc.storage.Set("LastGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.LastGC)})
+	svc.storage.Set("Lookups", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Lookups)})
+	svc.storage.Set("MCacheInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MCacheInuse)})
+	svc.storage.Set("MCacheSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MCacheSys)})
+	svc.storage.Set("MSpanInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MSpanInuse)})
+	svc.storage.Set("MSpanSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MSpanSys)})
+	svc.storage.Set("Mallocs", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Mallocs)})
+	svc.storage.Set("NextGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NextGC)})
+	svc.storage.Set("NumForcedGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NumForcedGC)})
+	svc.storage.Set("NumGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NumGC)})
+	svc.storage.Set("OtherSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.OtherSys)})
+	svc.storage.Set("PauseTotalNs", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.PauseTotalNs)})
+	svc.storage.Set("StackInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.StackInuse)})
+	svc.storage.Set("StackSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.StackSys)})
+	svc.storage.Set("Sys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Sys)})
+	svc.storage.Set("TotalAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.TotalAlloc)})
 
 	svc.storage.Set("PollCount", internal.MetricValue{Type: internal.CounterMetric, Value: svc.pollCount})
 	rValue := math.SmallestNonzeroFloat64 + rand.Float64()*(math.MaxFloat64-math.SmallestNonzeroFloat64)
-	svc.storage.Set("RandomValue", internal.MetricValue{Type: internal.GaugeMetric, Value: rValue})
+	svc.storage.Set("RandomValue", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(rValue)})
 
 }
 
@@ -134,25 +133,18 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 				return
 			}
 			url := svc.serverAddr + "/update/"
-			if metric.Type == internal.CounterMetric {
-				v, ok := metric.Value.(int64)
-				if !ok {
-					v = 0
-				}
-				url += path.Join(string(metric.Type), metricName, strconv.FormatInt(v, 10))
-			} else if metric.Type == internal.GaugeMetric {
-				v, ok := metric.Value.(float64)
-				if !ok {
-					v = 0
-				}
-				url += path.Join(string(metric.Type), metricName, strconv.FormatFloat(v, 'f', -1, 64))
-			}
-			r, err := http.NewRequest(http.MethodPost, url, nil)
+			rt, err := request.MetricPostPlain(metricName, metric, url)
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
 			}
-			requests <- r
+			rj, err := request.MetricPostJson(metricName, metric, url)
+			if err != nil {
+				svc.logger.Error(err.Error())
+				return
+			}
+			requests <- rt
+			requests <- rj
 		}()
 	}
 	wg.Wait()
