@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 )
 
 type AgentService struct {
@@ -132,12 +133,12 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 				return
 			}
 			url := svc.serverAddr + "/update/"
-			rt, err := NewPlainPost(metricName, metric, url)
+			rt, err := request.MetricPostPlain(metricName, metric, url)
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
 			}
-			rj, err := NewJsonPost(metricName, metric, url)
+			rj, err := request.MetricPostJson(metricName, metric, url)
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
