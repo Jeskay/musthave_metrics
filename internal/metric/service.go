@@ -35,6 +35,10 @@ func NewMetricService(conf config.ServerConfig, logger slog.Handler, file_storag
 	return service
 }
 
+func (s *MetricService) shouldSaveInstantly() bool {
+	return s.conf.SaveInterval == 0
+}
+
 func (s *MetricService) saveMetrics() {
 	m := []internal.Metric{}
 	for _, metric := range s.memory_storage.GetAll() {
@@ -67,7 +71,7 @@ func (s *MetricService) SetGaugeMetric(key string, value float64) {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
 
 	s.memory_storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
-	if s.conf.SaveInterval == 0 {
+	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
 }
@@ -84,7 +88,7 @@ func (s *MetricService) SetCounterMetric(key string, value int64) {
 		}
 	}
 	s.memory_storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
-	if s.conf.SaveInterval == 0 {
+	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
 }
