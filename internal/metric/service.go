@@ -27,17 +27,19 @@ func NewMetricService(conf config.ServerConfig, logger slog.Handler, file_storag
 		conf:         conf,
 		close:        make(chan struct{}),
 	}
-	if metrics, err := service.file_storage.Load(); err == nil {
-		for _, m := range metrics {
-			service.storage.Set(m.Name, m.Value)
-		}
+	if !service.databaseAccessible() {
+		service.LoadSavings()
+		go service.StartSaving()
 	}
-	go service.StartSaving()
 	return service
 }
 
 func (s *MetricService) shouldSaveInstantly() bool {
 	return s.conf.SaveInterval == 0
+}
+
+func (s *MetricService) databaseAccessible() bool {
+	return s.conf.DBConnection != ""
 }
 
 func (s *MetricService) saveMetrics() {
@@ -49,7 +51,9 @@ func (s *MetricService) saveMetrics() {
 }
 
 func (s *MetricService) Close() {
-	s.close <- struct{}{}
+	if !s.databaseAccessible() {
+		s.close <- struct{}{}
+	}
 }
 
 func (s *MetricService) StartSaving() {
@@ -66,6 +70,14 @@ func (s *MetricService) StartSaving() {
 			}
 		}
 	}()
+}
+
+func (s *MetricService) LoadSavings() {
+	if metrics, err := s.file_storage.Load(); err == nil {
+		for _, m := range metrics {
+			s.storage.Set(m.Name, m.Value)
+		}
+	}
 }
 
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
