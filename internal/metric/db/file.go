@@ -1,15 +1,13 @@
-package internal
+package db
 
 import (
 	"bytes"
 	"encoding/gob"
 	"os"
 	"sync"
-)
 
-type MemStorage struct {
-	data sync.Map
-}
+	"github.com/Jeskay/musthave_metrics/internal"
+)
 
 type FileStorage struct {
 	filename string
@@ -27,7 +25,7 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	}, err
 }
 
-func (fs *FileStorage) Save(metrics []Metric) error {
+func (fs *FileStorage) Save(metrics []internal.Metric) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(metrics)
@@ -40,7 +38,7 @@ func (fs *FileStorage) Save(metrics []Metric) error {
 	return err
 }
 
-func (fs *FileStorage) Load() (metrics []Metric, err error) {
+func (fs *FileStorage) Load() (metrics []internal.Metric, err error) {
 	var buf bytes.Buffer
 	fs.mu.Lock()
 	b, err := os.ReadFile(fs.filename)
@@ -57,28 +55,4 @@ func (fs *FileStorage) Load() (metrics []Metric, err error) {
 	return
 }
 
-func NewMemStorage() *MemStorage {
-	return &MemStorage{
-		data: sync.Map{},
-	}
-}
-
-func (ms *MemStorage) Set(key string, value MetricValue) {
-	ms.data.Store(key, value)
-}
-
-func (ms *MemStorage) Get(key string) (MetricValue, bool) {
-	if m, ok := ms.data.Load(key); ok {
-		return m.(MetricValue), ok
-	}
-	return MetricValue{}, false
-}
-
-func (ms *MemStorage) GetAll() []*Metric {
-	m := make([]*Metric, 0)
-	ms.data.Range(func(key, value any) bool {
-		m = append(m, &Metric{Name: key.(string), Value: value.(MetricValue)})
-		return true
-	})
-	return m
-}
+func (fs *FileStorage) Health() bool { return true }

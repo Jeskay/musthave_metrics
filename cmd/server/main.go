@@ -11,6 +11,7 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
@@ -23,16 +24,22 @@ import (
 var conf = config.NewServerConfig()
 
 func main() {
+	var storage internal.Repositories
 	t, err := loadTemplate()
 	if err != nil {
 		log.Fatal(err)
 	}
 	zapL := zap.Must(zap.NewProduction())
-	fs, err := internal.NewFileStorage(conf.StoragePath)
+	fs, err := db.NewFileStorage(conf.StoragePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, internal.NewMemStorage())
+	if conf.DBConnection != "" {
+		storage = db.NewPostgresStorage(conf.DBConnection)
+	} else {
+		storage = db.NewMemStorage()
+	}
+	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, storage)
 
 	r := routes.Init(service, t)
 
@@ -43,6 +50,7 @@ func main() {
 
 func init() {
 	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
+	flag.StringVar(&conf.DBConnection, "d", "", "database connection string")
 	flag.Func("f", "storage file location", func(s string) error {
 		if len(s) == 0 {
 			return nil

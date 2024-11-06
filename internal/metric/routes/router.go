@@ -37,6 +37,7 @@ func Init(svc *metric.MetricService, template *template.Template) *gin.Engine {
 		})
 
 	}
+	r.GET("/ping", handlers.Ping(svc))
 	r.GET("", handlers.ListMetrics(svc))
 	return r
 }

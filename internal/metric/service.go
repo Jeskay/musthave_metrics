@@ -7,28 +7,29 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 )
 
 type MetricService struct {
-	memory_storage *internal.MemStorage
-	file_storage   *internal.FileStorage
-	Logger         *slog.Logger
-	conf           config.ServerConfig
-	ticker         *time.Ticker
-	close          chan struct{}
+	storage      internal.Repositories
+	file_storage *db.FileStorage
+	Logger       *slog.Logger
+	conf         config.ServerConfig
+	ticker       *time.Ticker
+	close        chan struct{}
 }
 
-func NewMetricService(conf config.ServerConfig, logger slog.Handler, file_storage *internal.FileStorage, memory_storage *internal.MemStorage) *MetricService {
+func NewMetricService(conf config.ServerConfig, logger slog.Handler, file_storage *db.FileStorage, memory_storage internal.Repositories) *MetricService {
 	service := &MetricService{
-		memory_storage: memory_storage,
-		file_storage:   file_storage,
-		Logger:         slog.New(logger),
-		conf:           conf,
-		close:          make(chan struct{}),
+		storage:      memory_storage,
+		file_storage: file_storage,
+		Logger:       slog.New(logger),
+		conf:         conf,
+		close:        make(chan struct{}),
 	}
 	if metrics, err := service.file_storage.Load(); err == nil {
 		for _, m := range metrics {
-			service.memory_storage.Set(m.Name, m.Value)
+			service.storage.Set(m.Name, m.Value)
 		}
 	}
 	go service.StartSaving()
@@ -41,7 +42,7 @@ func (s *MetricService) shouldSaveInstantly() bool {
 
 func (s *MetricService) saveMetrics() {
 	m := []internal.Metric{}
-	for _, metric := range s.memory_storage.GetAll() {
+	for _, metric := range s.storage.GetAll() {
 		m = append(m, *metric)
 	}
 	s.file_storage.Save(m)
@@ -70,7 +71,7 @@ func (s *MetricService) StartSaving() {
 func (s *MetricService) SetGaugeMetric(key string, value float64) {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
 
-	s.memory_storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
+	s.storage.Set(key, internal.MetricValue{Type: internal.GaugeMetric, Value: value})
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
@@ -79,22 +80,22 @@ func (s *MetricService) SetGaugeMetric(key string, value float64) {
 func (s *MetricService) SetCounterMetric(key string, value int64) {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
 
-	v, ok := s.memory_storage.Get(key)
+	v, ok := s.storage.Get(key)
 	if ok {
 		if old, ok := v.Value.(int64); ok {
 			v.Value = old + value
-			s.memory_storage.Set(key, v)
+			s.storage.Set(key, v)
 			return
 		}
 	}
-	s.memory_storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
+	s.storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
 }
 
 func (s *MetricService) GetCounterMetric(key string) (bool, int64) {
-	m, ok := s.memory_storage.Get(key)
+	m, ok := s.storage.Get(key)
 	if !ok {
 		return false, 0
 	}
@@ -106,7 +107,7 @@ func (s *MetricService) GetCounterMetric(key string) (bool, int64) {
 }
 
 func (s *MetricService) GetGaugeMetric(key string) (bool, float64) {
-	m, ok := s.memory_storage.Get(key)
+	m, ok := s.storage.Get(key)
 	if !ok {
 		return false, 0
 	}
@@ -118,5 +119,9 @@ func (s *MetricService) GetGaugeMetric(key string) (bool, float64) {
 }
 
 func (s *MetricService) GetAllMetrics() []*internal.Metric {
-	return s.memory_storage.GetAll()
+	return s.storage.GetAll()
+}
+
+func (s *MetricService) DBHealth() bool {
+	return s.storage.Health()
 }

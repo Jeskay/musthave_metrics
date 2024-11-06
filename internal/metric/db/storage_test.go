@@ -1,44 +1,45 @@
-package internal
+package db
 
 import (
 	"fmt"
 	"sync"
 	"testing"
 
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAsyncAccessStorage(t *testing.T) {
-	var storage Repositories = NewMemStorage()
+	var storage internal.Repositories = NewMemStorage()
 	var values sync.Map
 	for i := 0; i < 50; i++ {
-		valC := MetricValue{Type: CounterMetric, Value: int64(i)}
-		valG := MetricValue{Type: GaugeMetric, Value: float64(i)}
+		valC := internal.MetricValue{Type: internal.CounterMetric, Value: int64(i)}
+		valG := internal.MetricValue{Type: internal.GaugeMetric, Value: float64(i)}
 		values.Store(fmt.Sprintf("testCounter%d", i), valC)
 		values.Store(fmt.Sprintf("testGauge%d", i), valG)
 	}
 	var wg sync.WaitGroup
 	values.Range(func(key, value any) bool {
 		wg.Add(1)
-		go func(k string, v MetricValue) {
+		go func(k string, v internal.MetricValue) {
 			storage.Set(k, v)
 			wg.Done()
-		}(key.(string), value.(MetricValue))
+		}(key.(string), value.(internal.MetricValue))
 		return true
 	})
 	wg.Wait()
 	require.Len(t, storage.GetAll(), 100)
 	res := make(chan bool)
 	values.Range(func(key, value any) bool {
-		go func(k string, v MetricValue, out chan<- bool) {
+		go func(k string, v internal.MetricValue, out chan<- bool) {
 			value, ok := storage.Get(k)
 			if !ok {
 				out <- false
 				return
 			}
 			out <- assert.ObjectsAreEqual(v, value)
-		}(key.(string), value.(MetricValue), res)
+		}(key.(string), value.(internal.MetricValue), res)
 		return true
 	})
 	for i := 0; i < 100; i++ {
@@ -48,12 +49,12 @@ func TestAsyncAccessStorage(t *testing.T) {
 }
 
 func TestSeqSavingStorage(t *testing.T) {
-	var storage Repositories = NewMemStorage()
-	valuesC := make([]MetricValue, 50)
-	valuesG := make([]MetricValue, 50)
+	var storage internal.Repositories = NewMemStorage()
+	valuesC := make([]internal.MetricValue, 50)
+	valuesG := make([]internal.MetricValue, 50)
 	for i := 0; i < 50; i++ {
-		valC := MetricValue{Type: CounterMetric, Value: int64(i)}
-		valG := MetricValue{Type: GaugeMetric, Value: float64(i)}
+		valC := internal.MetricValue{Type: internal.CounterMetric, Value: int64(i)}
+		valG := internal.MetricValue{Type: internal.GaugeMetric, Value: float64(i)}
 		valuesC[i] = valC
 		valuesG[i] = valG
 		storage.Set(fmt.Sprintf("testCounter%d", i), valC)
@@ -82,14 +83,14 @@ func TestSeqSavingStorage(t *testing.T) {
 }
 
 func TestSeqAccessStorage(t *testing.T) {
-	var storage Repositories = NewMemStorage()
-	obj1 := MetricValue{Type: GaugeMetric, Value: float64(9)}
-	obj2 := MetricValue{Type: CounterMetric, Value: int64(9)}
+	var storage internal.Repositories = NewMemStorage()
+	obj1 := internal.MetricValue{Type: internal.GaugeMetric, Value: float64(9)}
+	obj2 := internal.MetricValue{Type: internal.CounterMetric, Value: int64(9)}
 	for i := 0; i < 10; i++ {
-		storage.Set("test", MetricValue{Type: CounterMetric, Value: int64(i)})
+		storage.Set("test", internal.MetricValue{Type: internal.CounterMetric, Value: int64(i)})
 		storage.Set("test", obj1)
 
-		storage.Set("test2", MetricValue{Type: GaugeMetric, Value: float64(i)})
+		storage.Set("test2", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(i)})
 		storage.Set("test2", obj2)
 	}
 	assert.Len(t, storage.GetAll(), 2)

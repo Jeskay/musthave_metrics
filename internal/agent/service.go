@@ -13,6 +13,7 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 )
 
 type AgentService struct {
@@ -26,7 +27,7 @@ type AgentService struct {
 
 func NewAgentService(address string, logger slog.Handler) *AgentService {
 	service := &AgentService{
-		storage:    internal.NewMemStorage(),
+		storage:    db.NewMemStorage(),
 		serverAddr: "http://" + address,
 		logger:     slog.New(logger),
 	}
