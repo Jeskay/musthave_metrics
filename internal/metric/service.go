@@ -7,6 +7,7 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 )
 
@@ -101,6 +102,17 @@ func (s *MetricService) SetCounterMetric(key string, value int64) {
 		}
 	}
 	s.storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
+	if s.shouldSaveInstantly() {
+		s.saveMetrics()
+	}
+}
+
+func (s *MetricService) SetMetrics(metrics []dto.Metrics) {
+	cMetrics := make([]internal.Metric, 0)
+	for _, v := range metrics {
+		cMetrics = append(cMetrics, *internal.NewMetric(v))
+	}
+	s.storage.SetMany(cMetrics)
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}

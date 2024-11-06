@@ -44,6 +44,17 @@ func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var metrics []dto.Metrics
+		if err := c.ShouldBindJSON(&metrics); err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+		}
+		svc.SetMetrics(metrics)
+		c.Writer.WriteHeader(http.StatusOK)
+	}
+}
+
 func UpdateGaugeMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")

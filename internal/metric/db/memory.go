@@ -20,6 +20,12 @@ func (ms *MemStorage) Set(key string, value internal.MetricValue) {
 	ms.data.Store(key, value)
 }
 
+func (ms *MemStorage) SetMany(values []internal.Metric) {
+	for _, v := range values {
+		ms.data.Store(v.Name, v.Value)
+	}
+}
+
 func (ms *MemStorage) Get(key string) (internal.MetricValue, bool) {
 	if m, ok := ms.data.Load(key); ok {
 		return m.(internal.MetricValue), ok

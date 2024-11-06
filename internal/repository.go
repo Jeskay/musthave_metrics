@@ -6,6 +6,7 @@ import (
 
 type Repositories interface {
 	Set(key string, value MetricValue)
+	SetMany(values []Metric)
 	Get(key string) (MetricValue, bool)
 	Health() bool
 	GetAll() []*Metric

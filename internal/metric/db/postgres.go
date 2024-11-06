@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/Jeskay/musthave_metrics/internal"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -77,6 +78,33 @@ func (ps *PostgresStorage) Set(key string, value internal.MetricValue) {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func (ps *PostgresStorage) SetMany(values []internal.Metric) {
+	var query strings.Builder
+	args := make([]any, 0)
+	query.WriteString("INSERT INTO metric (name, countervalue, gaugevalue) VALUES")
+	for i, v := range values {
+		if i != 0 {
+			query.WriteString(", ")
+		}
+		query.WriteString(fmt.Sprintf("($%d, $%d, $%d)", 3*i+1, 3*i+2, 3*i+3))
+		if v.Value.Type == internal.CounterMetric {
+			args = append(args, v.Name, v.Value.Value.(int64), sql.NullFloat64{})
+		} else {
+			args = append(args, v.Name, sql.NullInt64{}, v.Value.Value.(float64))
+		}
+	}
+	query.WriteString(`
+		ON CONFLICT (name) DO UPDATE SET 
+		gaugevalue = excluded.gaugevalue,
+		countervalue = excluded.countervalue;
+	`)
+	qstr := query.String()
+	_, err := ps.db.Exec(qstr, args...)
+	if err != nil {
+		panic(err)
 	}
 }
 
