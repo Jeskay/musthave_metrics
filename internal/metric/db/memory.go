@@ -33,6 +33,16 @@ func (ms *MemStorage) Get(key string) (internal.MetricValue, bool) {
 	return internal.MetricValue{}, false
 }
 
+func (ms *MemStorage) GetMany(keys []string) []*internal.Metric {
+	m := make([]*internal.Metric, 0)
+	for _, key := range keys {
+		if value, ok := ms.Get(key); ok {
+			m = append(m, &internal.Metric{Name: key, Value: value})
+		}
+	}
+	return m
+}
+
 func (ms *MemStorage) GetAll() []*internal.Metric {
 	m := make([]*internal.Metric, 0)
 	ms.data.Range(func(key, value any) bool {

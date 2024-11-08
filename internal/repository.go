@@ -8,6 +8,7 @@ type Repositories interface {
 	Set(key string, value MetricValue)
 	SetMany(values []Metric)
 	Get(key string) (MetricValue, bool)
+	GetMany(keys []string) []*Metric
 	Health() bool
 	GetAll() []*Metric
 }
@@ -27,6 +28,19 @@ type MetricValue struct {
 type Metric struct {
 	Name  string
 	Value MetricValue
+}
+
+func (m Metric) ToDto() dto.Metrics {
+	d := dto.Metrics{
+		ID:    m.Name,
+		MType: string(m.Value.Type),
+	}
+	if v, ok := m.Value.Value.(int64); ok {
+		d.Delta = &v
+	} else if v, ok := m.Value.Value.(float64); ok {
+		d.Value = &v
+	}
+	return d
 }
 
 func NewMetric(metric dto.Metrics) *Metric {

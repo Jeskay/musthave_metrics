@@ -118,6 +118,15 @@ func (s *MetricService) SetMetrics(metrics []dto.Metrics) {
 	}
 }
 
+func (s *MetricService) GetMetrics(keys []string) []dto.Metrics {
+	metrics := s.storage.GetMany(keys)
+	ms := make([]dto.Metrics, len(metrics))
+	for i, m := range metrics {
+		ms[i] = m.ToDto()
+	}
+	return ms
+}
+
 func (s *MetricService) GetCounterMetric(key string) (bool, int64) {
 	m, ok := s.storage.Get(key)
 	if !ok {

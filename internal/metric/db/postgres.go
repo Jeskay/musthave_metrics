@@ -99,13 +99,52 @@ func (ps *PostgresStorage) SetMany(values []internal.Metric) {
 	query.WriteString(`
 		ON CONFLICT (name) DO UPDATE SET 
 		gaugevalue = excluded.gaugevalue,
-		countervalue = excluded.countervalue;
+		countervalue = metric.countervalue + excluded.countervalue;
 	`)
 	qstr := query.String()
 	_, err := ps.db.Exec(qstr, args...)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (ps *PostgresStorage) GetMany(keys []string) []*internal.Metric {
+	var (
+		name    string
+		gauge   sql.NullFloat64
+		counter sql.NullInt64
+	)
+	m := make([]*internal.Metric, 0)
+	args := make([]any, len(keys))
+	var query strings.Builder
+	query.WriteString("SELECT * FROM metric WHERE name IN (")
+	for i, k := range keys {
+		if i != 0 {
+			query.WriteString(", ")
+		}
+		query.WriteString(fmt.Sprintf("$%d", i+1))
+		args[i] = k
+	}
+	query.WriteString(");")
+	qstr := query.String()
+	rows, err := ps.db.Query(qstr, args...)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err := rows.Scan(&name, &counter, &gauge); err != nil {
+			panic(err)
+		}
+		metric := &internal.Metric{Name: name}
+		if counter.Valid {
+			metric.Value = internal.MetricValue{Type: internal.CounterMetric, Value: counter.Int64}
+		} else {
+			metric.Value = internal.MetricValue{Type: internal.GaugeMetric, Value: gauge.Float64}
+		}
+		m = append(m, metric)
+	}
+	return m
 }
 
 func (ps *PostgresStorage) GetAll() []*internal.Metric {

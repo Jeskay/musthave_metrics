@@ -51,7 +51,12 @@ func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusBadRequest)
 		}
 		svc.SetMetrics(metrics)
-		c.Writer.WriteHeader(http.StatusOK)
+		keys := make([]string, len(metrics))
+		for i, v := range metrics {
+			keys[i] = v.ID
+		}
+		updatedMetrics := svc.GetMetrics(keys)
+		c.JSON(http.StatusOK, updatedMetrics)
 	}
 }
 
