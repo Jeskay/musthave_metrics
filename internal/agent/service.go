@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 	"math/rand/v2"
 	"net/http"
 	"runtime"
@@ -17,12 +16,13 @@ import (
 )
 
 type AgentService struct {
-	storage     internal.Repositories
-	monitorTick *time.Ticker
-	updateTick  *time.Ticker
-	pollCount   int64
-	serverAddr  string
-	logger      *slog.Logger
+	JsonAvailable bool
+	storage       internal.Repositories
+	monitorTick   *time.Ticker
+	updateTick    *time.Ticker
+	pollCount     int64
+	serverAddr    string
+	logger        *slog.Logger
 }
 
 func NewAgentService(address string, logger slog.Handler) *AgentService {
@@ -31,7 +31,13 @@ func NewAgentService(address string, logger slog.Handler) *AgentService {
 		serverAddr: "http://" + address,
 		logger:     slog.New(logger),
 	}
+	service.CheckApiAvailability()
 	return service
+}
+
+func (svc *AgentService) CheckApiAvailability() {
+	res, err := http.Get(svc.serverAddr + "/ping")
+	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
 }
 
 func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{} {
@@ -71,7 +77,11 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	loop:
 		for {
 			reqs := make(chan *http.Request)
-			go svc.PrepareMetrics(reqs)
+			if svc.JsonAvailable {
+				go svc.PrepareMetricsBatch(reqs, 8)
+			} else {
+				go svc.PrepareMetrics(reqs)
+			}
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -118,7 +128,7 @@ func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	svc.storage.Set("TotalAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.TotalAlloc)})
 
 	svc.storage.Set("PollCount", internal.MetricValue{Type: internal.CounterMetric, Value: svc.pollCount})
-	rValue := math.SmallestNonzeroFloat64 + rand.Float64()*(math.MaxFloat64-math.SmallestNonzeroFloat64)
+	rValue := 1e-307 + rand.Float64()*(1e+308-1e-307)
 	svc.storage.Set("RandomValue", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(rValue)})
 
 }
@@ -149,6 +159,32 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 		}()
 	}
 	wg.Wait()
+	close(requests)
+}
+
+func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchSize int) {
+	var batch []*internal.Metric = make([]*internal.Metric, 0)
+	url := svc.serverAddr + "/updates/"
+	for i, metricName := range metricList {
+		metric, ok := svc.storage.Get(metricName)
+		if !ok {
+			continue
+		}
+		batch = append(batch, &internal.Metric{Name: metricName, Value: metric})
+		if (i+1)%batchSize == 0 {
+			r, err := request.MetricsPostJson(batch, url)
+			if err != nil {
+				continue
+			}
+			requests <- r
+			batch = make([]*internal.Metric, 0)
+		}
+	}
+	if len(batch) > 0 {
+		if r, err := request.MetricsPostJson(batch, url); err == nil {
+			requests <- r
+		}
+	}
 	close(requests)
 }
 

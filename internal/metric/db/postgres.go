@@ -30,8 +30,8 @@ func (ps *PostgresStorage) init() error {
 	_, err := ps.db.Exec(`
 		CREATE TABLE IF NOT EXISTS metric (
 			name varchar(500) PRIMARY KEY UNIQUE,
-			counterValue double precision,
-			gaugeValue integer
+			counterValue bigint,
+			gaugeValue  double precision
 		);
 	`)
 	return err
@@ -89,11 +89,11 @@ func (ps *PostgresStorage) SetMany(values []internal.Metric) {
 		if i != 0 {
 			query.WriteString(", ")
 		}
-		query.WriteString(fmt.Sprintf("($%d, $%d, $%d)", 3*i+1, 3*i+2, 3*i+3))
+		query.WriteString(fmt.Sprintf("($%d::varchar(500), $%d::bigint, $%d::double precision)", 3*i+1, 3*i+2, 3*i+3))
 		if v.Value.Type == internal.CounterMetric {
-			args = append(args, v.Name, v.Value.Value.(int64), sql.NullFloat64{})
+			args = append(args, v.Name, v.Value.Value.(int64), sql.NullFloat64{Valid: false})
 		} else {
-			args = append(args, v.Name, sql.NullInt64{}, v.Value.Value.(float64))
+			args = append(args, v.Name, sql.NullInt64{Valid: false}, v.Value.Value.(float64))
 		}
 	}
 	query.WriteString(`

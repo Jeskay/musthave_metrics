@@ -37,9 +37,9 @@ func NewMetric(metric dto.Metrics) *Metric {
 		},
 	}
 	if m.Value.Type == CounterMetric {
-		m.Value.Value = metric.Delta
+		m.Value.Value = *metric.Delta
 	} else {
-		m.Value.Value = metric.Value
+		m.Value.Value = *metric.Value
 	}
 	return m
 }
