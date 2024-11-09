@@ -26,12 +26,8 @@ func NewGaugeMetrics(name string, value float64) Metrics {
 func OptimizeMetrics(metrics []Metrics) []Metrics {
 	m_metrics := make(map[string]Metrics)
 	for _, v := range metrics {
-		if value, exists := m_metrics[v.ID]; exists {
-			if v.MType == "counter" {
-				*v.Delta = *v.Delta + *value.Delta
-			} else if v.MType == "gauge" {
-				*v.Value = *v.Value + *value.Value
-			}
+		if value, exists := m_metrics[v.ID]; exists && v.MType == "counter" {
+			*v.Delta = *v.Delta + *value.Delta
 		}
 		m_metrics[v.ID] = v
 	}
