@@ -22,3 +22,17 @@ func NewGaugeMetrics(name string, value float64) Metrics {
 		Value: &value,
 	}
 }
+
+func FilterUniqueMetrics(metrics []Metrics) []Metrics {
+	m_metrics := make(map[string]Metrics)
+	for _, v := range metrics {
+		m_metrics[v.ID] = v
+	}
+	res := make([]Metrics, len(m_metrics))
+	i := 0
+	for _, v := range m_metrics {
+		res[i] = v
+		i++
+	}
+	return res
+}

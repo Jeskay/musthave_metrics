@@ -50,6 +50,7 @@ func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
 		if err := c.ShouldBindJSON(&metrics); err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 		}
+		metrics = dto.FilterUniqueMetrics(metrics)
 		svc.SetMetrics(metrics)
 		keys := make([]string, len(metrics))
 		for i, v := range metrics {
