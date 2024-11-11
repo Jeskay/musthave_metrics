@@ -90,41 +90,54 @@ func (s *MetricService) SetGaugeMetric(key string, value float64) {
 	}
 }
 
-func (s *MetricService) SetCounterMetric(key string, value int64) {
+func (s *MetricService) SetCounterMetric(key string, value int64) error {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
 
-	v, ok := s.storage.Get(key)
-	if ok {
+	if v, ok := s.storage.Get(key); ok {
 		if old, ok := v.Value.(int64); ok {
 			v.Value = old + value
-			s.storage.Set(key, v)
-			return
+			if err := s.storage.Set(key, v); err != nil {
+				s.Logger.Error(err.Error())
+				return err
+			}
+			return nil
 		}
 	}
 	s.storage.Set(key, internal.MetricValue{Type: internal.CounterMetric, Value: value})
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
+	return nil
 }
 
-func (s *MetricService) SetMetrics(metrics []dto.Metrics) {
+func (s *MetricService) SetMetrics(metrics []dto.Metrics) error {
 	cMetrics := make([]internal.Metric, 0)
 	for _, v := range metrics {
 		cMetrics = append(cMetrics, *internal.NewMetric(v))
 	}
-	s.storage.SetMany(cMetrics)
+
+	if err := s.storage.SetMany(cMetrics); err != nil {
+		s.Logger.Error(err.Error())
+		return err
+	}
+
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
+	return nil
 }
 
-func (s *MetricService) GetMetrics(keys []string) []dto.Metrics {
-	metrics := s.storage.GetMany(keys)
+func (s *MetricService) GetMetrics(keys []string) ([]dto.Metrics, error) {
+	metrics, err := s.storage.GetMany(keys)
+	if err != nil {
+		s.Logger.Error(err.Error())
+		return nil, err
+	}
 	ms := make([]dto.Metrics, len(metrics))
 	for i, m := range metrics {
 		ms[i] = m.ToDto()
 	}
-	return ms
+	return ms, nil
 }
 
 func (s *MetricService) GetCounterMetric(key string) (bool, int64) {

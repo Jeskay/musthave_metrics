@@ -56,17 +56,16 @@ func (ps *PostgresStorage) Get(key string) (internal.MetricValue, bool) {
 	return internal.MetricValue{Value: gauge.Float64, Type: internal.GaugeMetric}, true
 }
 
-func (ps *PostgresStorage) Set(key string, value internal.MetricValue) {
+func (ps *PostgresStorage) Set(key string, value internal.MetricValue) error {
 	if value.Type == internal.CounterMetric {
-		res, err := ps.db.Exec(`
+		_, err := ps.db.Exec(`
 			INSERT INTO metric (name, countervalue)
 			VALUES ($1, $2)
 			ON CONFLICT (name) DO UPDATE
 				SET countervalue = excluded.countervalue;
 		`, key, value.Value)
 		if err != nil {
-			fmt.Println(res)
-			panic(err)
+			return err
 		}
 	} else {
 		_, err := ps.db.Exec(`
@@ -76,12 +75,13 @@ func (ps *PostgresStorage) Set(key string, value internal.MetricValue) {
 				SET gaugevalue = excluded.gaugevalue;
 		`, key, value.Value)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
-func (ps *PostgresStorage) SetMany(values []internal.Metric) {
+func (ps *PostgresStorage) SetMany(values []internal.Metric) error {
 	var query strings.Builder
 	args := make([]any, 0)
 	query.WriteString("INSERT INTO metric (name, countervalue, gaugevalue) VALUES")
@@ -104,11 +104,12 @@ func (ps *PostgresStorage) SetMany(values []internal.Metric) {
 	qstr := query.String()
 	_, err := ps.db.Exec(qstr, args...)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
-func (ps *PostgresStorage) GetMany(keys []string) []*internal.Metric {
+func (ps *PostgresStorage) GetMany(keys []string) ([]*internal.Metric, error) {
 	var (
 		name    string
 		gauge   sql.NullFloat64
@@ -129,12 +130,12 @@ func (ps *PostgresStorage) GetMany(keys []string) []*internal.Metric {
 	qstr := query.String()
 	rows, err := ps.db.Query(qstr, args...)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		if err := rows.Scan(&name, &counter, &gauge); err != nil {
-			panic(err)
+			return nil, err
 		}
 		metric := &internal.Metric{Name: name}
 		if counter.Valid {
@@ -144,7 +145,7 @@ func (ps *PostgresStorage) GetMany(keys []string) []*internal.Metric {
 		}
 		m = append(m, metric)
 	}
-	return m
+	return m, nil
 }
 
 func (ps *PostgresStorage) GetAll() []*internal.Metric {

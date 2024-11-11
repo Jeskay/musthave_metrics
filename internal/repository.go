@@ -5,10 +5,10 @@ import (
 )
 
 type Repositories interface {
-	Set(key string, value MetricValue)
-	SetMany(values []Metric)
+	Set(key string, value MetricValue) error
+	SetMany(values []Metric) error
 	Get(key string) (MetricValue, bool)
-	GetMany(keys []string) []*Metric
+	GetMany(keys []string) ([]*Metric, error)
 	Health() bool
 	GetAll() []*Metric
 }

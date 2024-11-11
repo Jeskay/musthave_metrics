@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/Jeskay/musthave_metrics/internal"
@@ -16,14 +17,16 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (ms *MemStorage) Set(key string, value internal.MetricValue) {
+func (ms *MemStorage) Set(key string, value internal.MetricValue) error {
 	ms.data.Store(key, value)
+	return nil
 }
 
-func (ms *MemStorage) SetMany(values []internal.Metric) {
+func (ms *MemStorage) SetMany(values []internal.Metric) error {
 	for _, v := range values {
 		ms.data.Store(v.Name, v.Value)
 	}
+	return nil
 }
 
 func (ms *MemStorage) Get(key string) (internal.MetricValue, bool) {
@@ -33,14 +36,16 @@ func (ms *MemStorage) Get(key string) (internal.MetricValue, bool) {
 	return internal.MetricValue{}, false
 }
 
-func (ms *MemStorage) GetMany(keys []string) []*internal.Metric {
-	m := make([]*internal.Metric, 0)
+func (ms *MemStorage) GetMany(keys []string) ([]*internal.Metric, error) {
+	m := make([]*internal.Metric, len(keys))
 	for _, key := range keys {
 		if value, ok := ms.Get(key); ok {
 			m = append(m, &internal.Metric{Name: key, Value: value})
+		} else {
+			return nil, fmt.Errorf("key %s does not exists", key)
 		}
 	}
-	return m
+	return m, nil
 }
 
 func (ms *MemStorage) GetAll() []*internal.Metric {
