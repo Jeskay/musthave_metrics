@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -58,26 +57,16 @@ func (ps *PostgresStorage) Get(key string) (dto.Metrics, bool) {
 }
 
 func (ps *PostgresStorage) Set(value dto.Metrics) error {
-	if internal.MetricType(value.MType) == internal.CounterMetric {
-		_, err := ps.db.Exec(`
-			INSERT INTO metric (name, countervalue)
-			VALUES ($1, $2)
-			ON CONFLICT (name) DO UPDATE
-				SET countervalue = excluded.countervalue;
-		`, value.ID, value.Delta)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := ps.db.Exec(`
-			INSERT INTO metric (name, gaugevalue)
-			VALUES ($1, $2)
-			ON CONFLICT (name) DO UPDATE
-				SET gaugevalue = excluded.gaugevalue;
-		`, value.ID, value.Value)
-		if err != nil {
-			return err
-		}
+	counter, gauge := value.QueryValues()
+	_, err := ps.db.Exec(`
+		INSERT INTO metric (name, countervalue, gaugevalue)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (name) DO UPDATE SET 
+			gaugevalue = excluded.gaugevalue,
+			countervalue = metric.countervalue + excluded.countervalue;
+		`, value.ID, counter, gauge)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -91,12 +80,13 @@ func (ps *PostgresStorage) SetMany(values []dto.Metrics) error {
 			query.WriteString(", ")
 		}
 		query.WriteString(fmt.Sprintf("($%d::varchar(500), $%d::bigint, $%d::double precision)", 3*i+1, 3*i+2, 3*i+3))
-		args = append(args, v)
+		counter, gauge := v.QueryValues()
+		args = append(args, v.ID, counter, gauge)
 	}
 	query.WriteString(`
 		ON CONFLICT (name) DO UPDATE SET 
-		gaugevalue = excluded.gaugevalue,
-		countervalue = metric.countervalue + excluded.countervalue;
+			gaugevalue = excluded.gaugevalue,
+			countervalue = metric.countervalue + excluded.countervalue;
 	`)
 	qstr := query.String()
 	_, err := ps.db.Exec(qstr, args...)

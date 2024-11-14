@@ -1,5 +1,7 @@
 package dto
 
+import "database/sql"
+
 type Metrics struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`
@@ -21,6 +23,28 @@ func NewGaugeMetrics(name string, value float64) Metrics {
 		MType: "gauge",
 		Value: &value,
 	}
+}
+
+func (metric Metrics) QueryValues() (counter sql.NullInt64, gauge sql.NullFloat64) {
+	if metric.MType == "gauge" {
+		counter.Valid = false
+		if metric.Value == nil {
+			gauge.Valid = false
+			return
+		}
+		gauge.Valid = true
+		gauge.Float64 = *metric.Value
+	}
+	if metric.MType == "counter" {
+		gauge.Valid = false
+		if metric.Delta == nil {
+			counter.Valid = false
+			return
+		}
+		counter.Valid = true
+		counter.Int64 = *metric.Delta
+	}
+	return
 }
 
 func OptimizeMetrics(metrics []Metrics) []Metrics {
