@@ -24,12 +24,15 @@ func main() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	logger := slog.NewTextHandler(os.Stdout, nil)
 	svc := agent.NewAgentService(conf.Address, logger)
+	err := svc.CheckApiAvailability()
+	if err != nil {
+		slog.Error(err.Error())
+	}
 	endMonitor = svc.StartMonitoring(conf.GetReportInterval())
 	endSender = svc.StartSending(conf.GetPollInterval())
 	<-sig
 	endMonitor <- struct{}{}
 	endSender <- struct{}{}
-	os.Exit(1)
 }
 
 func init() {

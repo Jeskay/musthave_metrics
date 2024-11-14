@@ -32,7 +32,9 @@ func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 			return
 		}
 		if metric.MType == string(internal.CounterMetric) {
-			svc.SetCounterMetric(metric.ID, *metric.Delta)
+			if err := svc.SetCounterMetric(metric.ID, *metric.Delta); err != nil {
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
 			if ok, v := svc.GetCounterMetric(metric.ID); ok {
 				metric.Delta = &v
 				c.JSON(http.StatusOK, metric)
@@ -41,6 +43,26 @@ func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 			svc.SetGaugeMetric(metric.ID, *metric.Value)
 			c.JSON(http.StatusOK, metric)
 		}
+	}
+}
+
+func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var metrics []dto.Metrics
+		if err := c.ShouldBindJSON(&metrics); err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+		}
+		metrics = dto.OptimizeMetrics(metrics)
+		svc.SetMetrics(metrics)
+		keys := make([]string, len(metrics))
+		for i, v := range metrics {
+			keys[i] = v.ID
+		}
+		updatedMetrics, err := svc.GetMetrics(keys)
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
+		c.JSON(http.StatusOK, updatedMetrics)
 	}
 }
 

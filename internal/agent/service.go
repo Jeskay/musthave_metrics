@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 	"math/rand/v2"
 	"net/http"
 	"runtime"
@@ -12,25 +11,34 @@ import (
 	"time"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 )
 
 type AgentService struct {
-	storage     internal.Repositories
-	monitorTick *time.Ticker
-	updateTick  *time.Ticker
-	pollCount   int64
-	serverAddr  string
-	logger      *slog.Logger
+	JsonAvailable bool
+	storage       internal.Repositories
+	monitorTick   *time.Ticker
+	updateTick    *time.Ticker
+	pollCount     int64
+	serverAddr    string
+	logger        *slog.Logger
 }
 
 func NewAgentService(address string, logger slog.Handler) *AgentService {
 	service := &AgentService{
-		storage:    internal.NewMemStorage(),
+		storage:    db.NewMemStorage(),
 		serverAddr: "http://" + address,
 		logger:     slog.New(logger),
 	}
 	return service
+}
+
+func (svc *AgentService) CheckApiAvailability() error {
+	res, err := http.Get(svc.serverAddr + "/ping")
+	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
+	return err
 }
 
 func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{} {
@@ -70,7 +78,11 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	loop:
 		for {
 			reqs := make(chan *http.Request)
-			go svc.PrepareMetrics(reqs)
+			if svc.JsonAvailable {
+				go svc.PrepareMetricsBatch(reqs, 8)
+			} else {
+				go svc.PrepareMetrics(reqs)
+			}
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -88,37 +100,37 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	svc.pollCount++
-	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
-	svc.storage.Set("BuckHashSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.BuckHashSys)})
-	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
-	svc.storage.Set("GCCPUFraction", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.GCCPUFraction)})
-	svc.storage.Set("GCSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.GCSys)})
-	svc.storage.Set("HeapAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapAlloc)})
-	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
-	svc.storage.Set("HeapInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapInuse)})
-	svc.storage.Set("HeapObjects", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapObjects)})
-	svc.storage.Set("HeapReleased", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapReleased)})
-	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
-	svc.storage.Set("LastGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.LastGC)})
-	svc.storage.Set("Lookups", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Lookups)})
-	svc.storage.Set("MCacheInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MCacheInuse)})
-	svc.storage.Set("MCacheSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MCacheSys)})
-	svc.storage.Set("MSpanInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MSpanInuse)})
-	svc.storage.Set("MSpanSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.MSpanSys)})
-	svc.storage.Set("Mallocs", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Mallocs)})
-	svc.storage.Set("NextGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NextGC)})
-	svc.storage.Set("NumForcedGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NumForcedGC)})
-	svc.storage.Set("NumGC", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.NumGC)})
-	svc.storage.Set("OtherSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.OtherSys)})
-	svc.storage.Set("PauseTotalNs", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.PauseTotalNs)})
-	svc.storage.Set("StackInuse", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.StackInuse)})
-	svc.storage.Set("StackSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.StackSys)})
-	svc.storage.Set("Sys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Sys)})
-	svc.storage.Set("TotalAlloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.TotalAlloc)})
+	svc.storage.Set(dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)))
+	svc.storage.Set(dto.NewGaugeMetrics("BuckHashSys", float64(mStats.BuckHashSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("Frees", float64(mStats.Frees)))
+	svc.storage.Set(dto.NewGaugeMetrics("GCCPUFraction", float64(mStats.GCCPUFraction)))
+	svc.storage.Set(dto.NewGaugeMetrics("GCSys", float64(mStats.GCSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapAlloc", float64(mStats.HeapAlloc)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapInuse", float64(mStats.HeapInuse)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapObjects", float64(mStats.HeapObjects)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapReleased", float64(mStats.HeapReleased)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapSys", float64(mStats.HeapSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("LastGC", float64(mStats.LastGC)))
+	svc.storage.Set(dto.NewGaugeMetrics("Lookups", float64(mStats.Lookups)))
+	svc.storage.Set(dto.NewGaugeMetrics("MCacheInuse", float64(mStats.MCacheInuse)))
+	svc.storage.Set(dto.NewGaugeMetrics("MCacheSys", float64(mStats.MCacheSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("MSpanInuse", float64(mStats.MSpanInuse)))
+	svc.storage.Set(dto.NewGaugeMetrics("MSpanSys", float64(mStats.MSpanSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("Mallocs", float64(mStats.Mallocs)))
+	svc.storage.Set(dto.NewGaugeMetrics("NextGC", float64(mStats.NextGC)))
+	svc.storage.Set(dto.NewGaugeMetrics("NumForcedGC", float64(mStats.NumForcedGC)))
+	svc.storage.Set(dto.NewGaugeMetrics("NumGC", float64(mStats.NumGC)))
+	svc.storage.Set(dto.NewGaugeMetrics("OtherSys", float64(mStats.OtherSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("PauseTotalNs", float64(mStats.PauseTotalNs)))
+	svc.storage.Set(dto.NewGaugeMetrics("StackInuse", float64(mStats.StackInuse)))
+	svc.storage.Set(dto.NewGaugeMetrics("StackSys", float64(mStats.StackSys)))
+	svc.storage.Set(dto.NewGaugeMetrics("Sys", float64(mStats.Sys)))
+	svc.storage.Set(dto.NewGaugeMetrics("TotalAlloc", float64(mStats.TotalAlloc)))
 
-	svc.storage.Set("PollCount", internal.MetricValue{Type: internal.CounterMetric, Value: svc.pollCount})
-	rValue := math.SmallestNonzeroFloat64 + rand.Float64()*(math.MaxFloat64-math.SmallestNonzeroFloat64)
-	svc.storage.Set("RandomValue", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(rValue)})
+	svc.storage.Set(dto.NewCounterMetrics("PollCount", svc.pollCount))
+	rValue := 1e-307 + rand.Float64()*(1e+308-1e-307)
+	svc.storage.Set(dto.NewGaugeMetrics("RandomValue", float64(rValue)))
 
 }
 
@@ -148,6 +160,34 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 		}()
 	}
 	wg.Wait()
+	close(requests)
+}
+
+func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchSize int) {
+	batch := make([]dto.Metrics, 0)
+	url := svc.serverAddr + "/updates/"
+	for i, metricName := range metricList {
+		metric, ok := svc.storage.Get(metricName)
+		if !ok {
+			continue
+		}
+		batch = append(batch, metric)
+		if (i+1)%batchSize == 0 {
+			r, err := request.MetricsPostJson(batch, url)
+			svc.logger.Debug("post metrics batch", slog.Any("response", r))
+			if err != nil {
+				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
+				continue
+			}
+			requests <- r
+			batch = make([]dto.Metrics, 0)
+		}
+	}
+	if len(batch) > 0 {
+		if r, err := request.MetricsPostJson(batch, url); err == nil {
+			requests <- r
+		}
+	}
 	close(requests)
 }
 

@@ -6,6 +6,7 @@ type ServerConfig struct {
 	Address      string `env:"ADDRESS"`
 	SaveInterval int    `env:"STORE_INTERVAL"`
 	StoragePath  string `env:"FILE_STORAGE_PATH"`
+	DBConnection string `env:"DATABASE_DSN"`
 	Restore      bool   `env:"RESTORE"`
 }
 
