@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
@@ -10,20 +11,20 @@ import (
 )
 
 type PostgresStorage struct {
-	db *sql.DB
+	logger *slog.Logger
+	db     *sql.DB
 }
 
-func NewPostgresStorage(conn string) *PostgresStorage {
-	db, err := sql.Open("pgx", conn)
-	if err != nil {
-		return &PostgresStorage{db: nil}
+func NewPostgresStorage(db *sql.DB, logger slog.Handler) (*PostgresStorage, error) {
+	ps := &PostgresStorage{
+		db:     db,
+		logger: slog.New(logger),
 	}
-	ps := &PostgresStorage{db}
-	err = ps.init()
+	err := ps.init()
 	if err != nil {
-		return &PostgresStorage{db: nil}
+		return &PostgresStorage{db: nil}, err
 	}
-	return ps
+	return ps, nil
 }
 
 func (ps *PostgresStorage) init() error {
@@ -45,9 +46,11 @@ func (ps *PostgresStorage) Get(key string) (dto.Metrics, bool) {
 	)
 	row := ps.db.QueryRow(`SELECT * FROM metric WHERE name = $1;`, key)
 	if row.Err() != nil {
+		slog.Error(row.Err().Error())
 		return dto.Metrics{}, false
 	}
 	if err := row.Scan(&name, &counter, &gauge); err != nil {
+		ps.logger.Error(err.Error())
 		return dto.Metrics{}, false
 	}
 	if counter.Valid {
@@ -66,6 +69,7 @@ func (ps *PostgresStorage) Set(value dto.Metrics) error {
 			countervalue = metric.countervalue + excluded.countervalue;
 		`, value.ID, counter, gauge)
 	if err != nil {
+		ps.logger.Error(err.Error())
 		return err
 	}
 	return nil
@@ -91,6 +95,7 @@ func (ps *PostgresStorage) SetMany(values []dto.Metrics) error {
 	qstr := query.String()
 	_, err := ps.db.Exec(qstr, args...)
 	if err != nil {
+		ps.logger.Error(err.Error())
 		return err
 	}
 	return nil
@@ -117,6 +122,35 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	qstr := query.String()
 	rows, err := ps.db.Query(qstr, args...)
 	if err != nil {
+		ps.logger.Error(err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err := rows.Scan(&name, &counter, &gauge); err != nil {
+			ps.logger.Error(err.Error())
+			return nil, err
+		}
+		var metric dto.Metrics
+		if counter.Valid {
+			metric = dto.NewCounterMetrics(name, counter.Int64)
+		} else {
+			metric = dto.NewGaugeMetrics(name, gauge.Float64)
+		}
+		m = append(m, metric)
+	}
+	return m, nil
+}
+
+func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
+	var (
+		name    string
+		gauge   sql.NullFloat64
+		counter sql.NullInt64
+	)
+	m := make([]dto.Metrics, 0)
+	rows, err := ps.db.Query(`SELECT * FROM metric`)
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
@@ -133,33 +167,6 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 		m = append(m, metric)
 	}
 	return m, nil
-}
-
-func (ps *PostgresStorage) GetAll() []dto.Metrics {
-	var (
-		name    string
-		gauge   sql.NullFloat64
-		counter sql.NullInt64
-	)
-	m := make([]dto.Metrics, 0)
-	rows, err := ps.db.Query(`SELECT * FROM metric`)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		if err := rows.Scan(&name, &counter, &gauge); err != nil {
-			panic(err)
-		}
-		var metric dto.Metrics
-		if counter.Valid {
-			metric = dto.NewCounterMetrics(name, counter.Int64)
-		} else {
-			metric = dto.NewGaugeMetrics(name, gauge.Float64)
-		}
-		m = append(m, metric)
-	}
-	return m
 }
 
 func (ps *PostgresStorage) Health() bool {

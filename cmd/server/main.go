@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"flag"
 	"html/template"
@@ -25,20 +26,30 @@ var conf = config.NewServerConfig()
 
 func main() {
 	var storage internal.Repositories
+
+	zapL := zap.Must(zap.NewProduction())
 	t, err := loadTemplate()
 	if err != nil {
-		log.Fatal(err)
+		zapL.Fatal("failed to load templates", zap.Error(err))
 	}
-	zapL := zap.Must(zap.NewProduction())
+
 	fs, err := db.NewFileStorage(conf.StoragePath)
 	if err != nil {
-		log.Fatal(err)
+		zapL.Fatal("failed to init file storage", zap.Error(err))
 	}
-	if conf.DBConnection != "" {
-		storage = db.NewPostgresStorage(conf.DBConnection)
-	} else {
+
+	if conf.DBConnection == "" {
 		storage = db.NewMemStorage()
+	} else {
+		database, err := sql.Open("pgx", conf.DBConnection)
+		if err != nil {
+			zapL.Fatal("failed to connect to database", zap.Error(err))
+		}
+		if storage, err = db.NewPostgresStorage(database, zapslog.NewHandler(zapL.Core(), nil)); err != nil {
+			zapL.Fatal("failed to init database", zap.Error(err))
+		}
 	}
+
 	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, storage)
 
 	r := routes.Init(service, t)

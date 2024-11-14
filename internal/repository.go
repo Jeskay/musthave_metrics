@@ -8,7 +8,7 @@ type Repositories interface {
 	Get(key string) (dto.Metrics, bool)
 	GetMany(keys []string) ([]dto.Metrics, error)
 	Health() bool
-	GetAll() []dto.Metrics
+	GetAll() ([]dto.Metrics, error)
 }
 
 type MetricType string

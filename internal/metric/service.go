@@ -44,7 +44,9 @@ func (s *MetricService) databaseAccessible() bool {
 }
 
 func (s *MetricService) saveMetrics() {
-	s.file_storage.Save(s.storage.GetAll())
+	if metrics, err := s.storage.GetAll(); err == nil {
+		s.file_storage.Save(metrics)
+	}
 }
 
 func (s *MetricService) Close() {
@@ -147,7 +149,7 @@ func (s *MetricService) GetGaugeMetric(key string) (bool, float64) {
 	return ok, *m.Value
 }
 
-func (s *MetricService) GetAllMetrics() []dto.Metrics {
+func (s *MetricService) GetAllMetrics() ([]dto.Metrics, error) {
 	return s.storage.GetAll()
 }
 

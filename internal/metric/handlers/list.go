@@ -32,7 +32,10 @@ func NewMetricString(metric dto.Metrics) MetricString {
 func ListMetrics(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		list := svc.GetAllMetrics()
+		list, err := svc.GetAllMetrics()
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
 		metrics := make([]MetricString, len(list))
 		for i, m := range list {
 			metrics[i] = NewMetricString(m)

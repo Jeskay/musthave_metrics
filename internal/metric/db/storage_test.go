@@ -30,7 +30,9 @@ func TestAsyncAccessStorage(t *testing.T) {
 		return true
 	})
 	wg.Wait()
-	require.Len(t, storage.GetAll(), 100)
+	ms, err := storage.GetAll()
+	require.Nil(t, err)
+	require.Len(t, ms, 100)
 	res := make(chan bool)
 	values.Range(func(key, value any) bool {
 		go func(v dto.Metrics, out chan<- bool) {
@@ -80,7 +82,9 @@ func TestSeqSavingStorage(t *testing.T) {
 		)
 
 	}
-	assert.Len(t, storage.GetAll(), len(valuesC)+len(valuesG))
+	ms, err := storage.GetAll()
+	require.Nil(t, err)
+	assert.Len(t, ms, len(valuesC)+len(valuesG))
 }
 
 func TestSeqAccessStorage(t *testing.T) {
@@ -94,7 +98,9 @@ func TestSeqAccessStorage(t *testing.T) {
 		storage.Set(dto.NewGaugeMetrics("test2", float64(i)))
 		storage.Set(obj2)
 	}
-	assert.Len(t, storage.GetAll(), 2)
+	ms, err := storage.GetAll()
+	require.Nil(t, err)
+	assert.Len(t, ms, 2)
 
 	m, ok := storage.Get("test")
 	assert.True(t, ok)

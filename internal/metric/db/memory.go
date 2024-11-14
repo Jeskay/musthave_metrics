@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"sync"
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
@@ -31,7 +30,8 @@ func (ms *MemStorage) SetMany(values []dto.Metrics) error {
 
 func (ms *MemStorage) Get(key string) (dto.Metrics, bool) {
 	if m, ok := ms.data.Load(key); ok {
-		return m.(dto.Metrics), ok
+		v, ok := m.(dto.Metrics)
+		return v, ok
 	}
 	return dto.Metrics{}, false
 }
@@ -41,14 +41,12 @@ func (ms *MemStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	for _, key := range keys {
 		if value, ok := ms.Get(key); ok {
 			m = append(m, value)
-		} else {
-			return nil, fmt.Errorf("key %s does not exists", key)
 		}
 	}
 	return m, nil
 }
 
-func (ms *MemStorage) GetAll() []dto.Metrics {
+func (ms *MemStorage) GetAll() ([]dto.Metrics, error) {
 	m := make([]dto.Metrics, 0)
 	ms.data.Range(func(key, value any) bool {
 		v, ok := value.(dto.Metrics)
@@ -57,7 +55,7 @@ func (ms *MemStorage) GetAll() []dto.Metrics {
 		}
 		return ok
 	})
-	return m
+	return m, nil
 }
 
 func (ms *MemStorage) Health() bool { return true }

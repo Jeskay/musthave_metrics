@@ -32,13 +32,13 @@ func NewAgentService(address string, logger slog.Handler) *AgentService {
 		serverAddr: "http://" + address,
 		logger:     slog.New(logger),
 	}
-	service.CheckApiAvailability()
 	return service
 }
 
-func (svc *AgentService) CheckApiAvailability() {
+func (svc *AgentService) CheckApiAvailability() error {
 	res, err := http.Get(svc.serverAddr + "/ping")
 	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
+	return err
 }
 
 func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{} {
@@ -174,7 +174,9 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
 			r, err := request.MetricsPostJson(batch, url)
+			svc.logger.Debug("post metrics batch", slog.Any("response", r))
 			if err != nil {
+				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
 				continue
 			}
 			requests <- r

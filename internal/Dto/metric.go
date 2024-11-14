@@ -50,7 +50,8 @@ func (metric Metrics) QueryValues() (counter sql.NullInt64, gauge sql.NullFloat6
 func OptimizeMetrics(metrics []Metrics) []Metrics {
 	m_metrics := make(map[string]Metrics)
 	for _, v := range metrics {
-		if value, exists := m_metrics[v.ID]; exists && v.MType == "counter" {
+		value, exists := m_metrics[v.ID]
+		if exists && v.MType == "counter" && value.Delta != nil && v.Delta != nil {
 			*v.Delta = *v.Delta + *value.Delta
 		}
 		m_metrics[v.ID] = v
