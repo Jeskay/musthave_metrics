@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
 type MemStorage struct {
@@ -17,30 +17,30 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (ms *MemStorage) Set(key string, value internal.MetricValue) error {
-	ms.data.Store(key, value)
+func (ms *MemStorage) Set(value dto.Metrics) error {
+	ms.data.Store(value.ID, value)
 	return nil
 }
 
-func (ms *MemStorage) SetMany(values []internal.Metric) error {
+func (ms *MemStorage) SetMany(values []dto.Metrics) error {
 	for _, v := range values {
-		ms.data.Store(v.Name, v.Value)
+		ms.data.Store(v.ID, v)
 	}
 	return nil
 }
 
-func (ms *MemStorage) Get(key string) (internal.MetricValue, bool) {
+func (ms *MemStorage) Get(key string) (dto.Metrics, bool) {
 	if m, ok := ms.data.Load(key); ok {
-		return m.(internal.MetricValue), ok
+		return m.(dto.Metrics), ok
 	}
-	return internal.MetricValue{}, false
+	return dto.Metrics{}, false
 }
 
-func (ms *MemStorage) GetMany(keys []string) ([]*internal.Metric, error) {
-	m := make([]*internal.Metric, len(keys))
+func (ms *MemStorage) GetMany(keys []string) ([]dto.Metrics, error) {
+	m := make([]dto.Metrics, len(keys))
 	for _, key := range keys {
 		if value, ok := ms.Get(key); ok {
-			m = append(m, &internal.Metric{Name: key, Value: value})
+			m = append(m, value)
 		} else {
 			return nil, fmt.Errorf("key %s does not exists", key)
 		}
@@ -48,11 +48,14 @@ func (ms *MemStorage) GetMany(keys []string) ([]*internal.Metric, error) {
 	return m, nil
 }
 
-func (ms *MemStorage) GetAll() []*internal.Metric {
-	m := make([]*internal.Metric, 0)
+func (ms *MemStorage) GetAll() []dto.Metrics {
+	m := make([]dto.Metrics, 0)
 	ms.data.Range(func(key, value any) bool {
-		m = append(m, &internal.Metric{Name: key.(string), Value: value.(internal.MetricValue)})
-		return true
+		v, ok := value.(dto.Metrics)
+		if ok {
+			m = append(m, v)
+		}
+		return ok
 	})
 	return m
 }

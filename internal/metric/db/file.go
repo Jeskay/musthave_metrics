@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
 type FileStorage struct {
@@ -25,7 +25,7 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	}, err
 }
 
-func (fs *FileStorage) Save(metrics []internal.Metric) error {
+func (fs *FileStorage) Save(metrics []dto.Metrics) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(metrics)
@@ -38,7 +38,7 @@ func (fs *FileStorage) Save(metrics []internal.Metric) error {
 	return err
 }
 
-func (fs *FileStorage) Load() (metrics []internal.Metric, err error) {
+func (fs *FileStorage) Load() (metrics []dto.Metrics, err error) {
 	var buf bytes.Buffer
 	fs.mu.Lock()
 	b, err := os.ReadFile(fs.filename)

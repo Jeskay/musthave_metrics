@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,10 +25,9 @@ func TestCollectMetrics(t *testing.T) {
 	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
 	svc.CollectMetrics(mStats)
 	m, _ := svc.storage.Get("Alloc")
-	assert.Equal(t, m.Type, internal.GaugeMetric)
-	v, ok := m.Value.(float64)
-	require.True(t, ok)
-	assert.Equal(t, v, float64(mStats.Alloc))
+	assert.Equal(t, string(internal.GaugeMetric), m.MType)
+	require.True(t, m.Value != nil)
+	assert.Equal(t, *m.Value, float64(mStats.Alloc))
 	val, ok := svc.storage.Get("PauseNs")
 	assert.Zero(t, val)
 	assert.False(t, ok)
@@ -36,18 +36,16 @@ func TestCollectMetrics(t *testing.T) {
 	for i = 1; i < 100; i++ {
 		m, ok = svc.storage.Get("PollCount")
 		assert.True(t, ok)
-		assert.Equal(t, internal.CounterMetric, m.Type)
-		poll, ok := m.Value.(int64)
-		require.True(t, ok)
-		assert.Equal(t, i, poll)
+		assert.Equal(t, string(internal.CounterMetric), m.MType)
+		require.True(t, m.Delta != nil)
+		assert.Equal(t, i, *m.Delta)
 		svc.CollectMetrics(mStats)
 	}
 
 	m, ok = svc.storage.Get("RandomValue")
 	require.True(t, ok)
-	assert.Equal(t, internal.GaugeMetric, m.Type)
-	_, ok = m.Value.(float64)
-	assert.True(t, ok)
+	assert.Equal(t, string(internal.GaugeMetric), m.MType)
+	assert.True(t, m.Value != nil)
 }
 
 func TestPrepareMetrics(t *testing.T) {
@@ -67,12 +65,12 @@ func TestPrepareMetrics(t *testing.T) {
 	}
 	reqs := make(chan *http.Request)
 	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
-	svc.storage.Set("Alloc", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Alloc)})
-	svc.storage.Set("HeapIdle", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapIdle)})
-	svc.storage.Set("Frees", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.Frees)})
-	svc.storage.Set("PollCount", internal.MetricValue{Type: internal.CounterMetric, Value: int64(1)})
-	svc.storage.Set("GCCPUFraction", internal.MetricValue{Type: internal.GaugeMetric, Value: mStats.GCCPUFraction})
-	svc.storage.Set("HeapSys", internal.MetricValue{Type: internal.GaugeMetric, Value: float64(mStats.HeapSys)})
+	svc.storage.Set(dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)))
+	svc.storage.Set(dto.NewGaugeMetrics("Frees", float64(mStats.Frees)))
+	svc.storage.Set(dto.NewCounterMetrics("PollCount", int64(1)))
+	svc.storage.Set(dto.NewGaugeMetrics("GCCPUFraction", mStats.GCCPUFraction))
+	svc.storage.Set(dto.NewGaugeMetrics("HeapSys", float64(mStats.HeapSys)))
 	go svc.PrepareMetrics(reqs)
 	count := 0
 	jsonCount := 0

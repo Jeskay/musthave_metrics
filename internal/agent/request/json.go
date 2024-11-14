@@ -6,19 +6,12 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
-func MetricPostJson(name string, metricValue internal.MetricValue, url string) (req *http.Request, err error) {
-	var metrics dto.Metrics
+func MetricPostJson(name string, metric dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
-	if metricValue.Type == internal.CounterMetric {
-		metrics = dto.NewCounterMetrics(name, metricValue.Value.(int64))
-	} else if metricValue.Type == internal.GaugeMetric {
-		metrics = dto.NewGaugeMetrics(name, metricValue.Value.(float64))
-	}
-	data, err := json.Marshal(metrics)
+	data, err := json.Marshal(metric)
 	if err != nil {
 		return nil, err
 	}
@@ -36,21 +29,10 @@ func MetricPostJson(name string, metricValue internal.MetricValue, url string) (
 	return
 }
 
-func MetricsPostJson(metrics []*internal.Metric, url string) (req *http.Request, err error) {
+func MetricsPostJson(metrics []dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
-	var metricsJson []dto.Metrics = make([]dto.Metrics, len(metrics))
 	g := gzip.NewWriter(&buf)
-
-	for i, m := range metrics {
-		var metric dto.Metrics
-		if m.Value.Type == internal.CounterMetric {
-			metric = dto.NewCounterMetrics(m.Name, m.Value.Value.(int64))
-		} else if m.Value.Type == internal.GaugeMetric {
-			metric = dto.NewGaugeMetrics(m.Name, m.Value.Value.(float64))
-		}
-		metricsJson[i] = metric
-	}
-	data, err := json.Marshal(metricsJson)
+	data, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,6 @@ func main() {
 	<-sig
 	endMonitor <- struct{}{}
 	endSender <- struct{}{}
-	os.Exit(1)
 }
 
 func init() {

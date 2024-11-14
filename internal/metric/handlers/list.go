@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/gin-gonic/gin"
 )
@@ -15,17 +16,15 @@ type MetricString struct {
 	Value string
 }
 
-func NewMetricString(metric *internal.Metric) MetricString {
+func NewMetricString(metric dto.Metrics) MetricString {
 	mStr := MetricString{
-		Name: metric.Name,
-		Type: string(metric.Value.Type),
+		Name: metric.ID,
+		Type: metric.MType,
 	}
-	if metric.Value.Type == internal.CounterMetric {
-		v := metric.Value.Value.(int64)
-		mStr.Value = strconv.FormatInt(v, 10)
-	} else {
-		v := metric.Value.Value.(float64)
-		mStr.Value = strconv.FormatFloat(v, 'f', -1, 64)
+	if internal.MetricType(metric.MType) == internal.CounterMetric && metric.Delta != nil {
+		mStr.Value = strconv.FormatInt(*metric.Delta, 10)
+	} else if metric.Value != nil {
+		mStr.Value = strconv.FormatFloat(*metric.Value, 'f', -1, 64)
 	}
 	return mStr
 }
