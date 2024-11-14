@@ -27,7 +27,6 @@ func main() {
 	err := svc.CheckApiAvailability()
 	if err != nil {
 		slog.Error(err.Error())
-		os.Exit(1)
 	}
 	endMonitor = svc.StartMonitoring(conf.GetReportInterval())
 	endSender = svc.StartSending(conf.GetPollInterval())
