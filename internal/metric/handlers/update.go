@@ -19,7 +19,9 @@ func UpdateCounterMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		svc.SetCounterMetric(name, value)
+		if err := svc.SetCounterMetric(name, value); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
 		c.Writer.WriteHeader(http.StatusOK)
 	}
 }
@@ -40,7 +42,9 @@ func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 				c.JSON(http.StatusOK, metric)
 			}
 		} else {
-			svc.SetGaugeMetric(metric.ID, *metric.Value)
+			if err := svc.SetGaugeMetric(metric.ID, *metric.Value); err != nil {
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
 			c.JSON(http.StatusOK, metric)
 		}
 	}
@@ -53,7 +57,10 @@ func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusBadRequest)
 		}
 		metrics = dto.OptimizeMetrics(metrics)
-		svc.SetMetrics(metrics)
+		if err := svc.SetMetrics(metrics); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
+
 		keys := make([]string, len(metrics))
 		for i, v := range metrics {
 			keys[i] = v.ID
@@ -75,7 +82,9 @@ func UpdateGaugeMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		svc.SetGaugeMetric(name, value)
+		if err := svc.SetGaugeMetric(name, value); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
 		c.Writer.WriteHeader(http.StatusOK)
 	}
 }
