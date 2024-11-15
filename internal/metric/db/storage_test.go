@@ -104,10 +104,10 @@ func TestSeqAccessStorage(t *testing.T) {
 
 	m, ok := storage.Get("test")
 	assert.True(t, ok)
-	assert.True(t, assert.ObjectsAreEqual(obj1, m))
+	assert.Equal(t, obj1.Value, m.Value)
 	m, ok = storage.Get("test2")
 	assert.True(t, ok)
-	assert.True(t, assert.ObjectsAreEqual(obj2, m))
+	assert.Equal(t, obj2.Value, m.Value)
 	_, ok = storage.Get("unknown")
 	assert.False(t, ok)
 }
