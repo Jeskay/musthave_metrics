@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -28,13 +29,18 @@ func NewPostgresStorage(db *sql.DB, logger slog.Handler) (*PostgresStorage, erro
 }
 
 func (ps *PostgresStorage) init() error {
-	_, err := ps.db.Exec(`
+	query := `
 		CREATE TABLE IF NOT EXISTS metric (
 			name varchar(500) PRIMARY KEY UNIQUE,
 			counterValue bigint,
 			gaugeValue  double precision
 		);
-	`)
+	`
+	err := util.TryRun(func() (err error) {
+		_, err = ps.db.Exec(query)
+		return
+	}, util.IsPGConnectionError)
+
 	return err
 }
 
@@ -44,9 +50,14 @@ func (ps *PostgresStorage) Get(key string) (dto.Metrics, bool) {
 		gauge   sql.NullFloat64
 		counter sql.NullInt64
 	)
-	row := ps.db.QueryRow(`SELECT * FROM metric WHERE name = $1;`, key)
-	if row.Err() != nil {
-		slog.Error(row.Err().Error())
+	var row *sql.Row
+	err := util.TryRun(func() (err error) {
+		row = ps.db.QueryRow(`SELECT * FROM metric WHERE name = $1;`, key)
+		return row.Err()
+	}, util.IsPGConnectionError)
+
+	if err != nil {
+		slog.Error(err.Error())
 		return dto.Metrics{}, false
 	}
 	if err := row.Scan(&name, &counter, &gauge); err != nil {
@@ -61,13 +72,18 @@ func (ps *PostgresStorage) Get(key string) (dto.Metrics, bool) {
 
 func (ps *PostgresStorage) Set(value dto.Metrics) error {
 	counter, gauge := value.QueryValues()
-	_, err := ps.db.Exec(`
+	query := `
 		INSERT INTO metric (name, countervalue, gaugevalue)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (name) DO UPDATE SET 
 			gaugevalue = excluded.gaugevalue,
-			countervalue = metric.countervalue + excluded.countervalue;
-		`, value.ID, counter, gauge)
+			countervalue = metric.countervalue + excluded.countervalue;`
+
+	err := util.TryRun(func() (err error) {
+		_, err = ps.db.Exec(query, value.ID, counter, gauge)
+		return
+	}, util.IsPGConnectionError)
+
 	if err != nil {
 		ps.logger.Error(err.Error())
 		return err
@@ -93,7 +109,11 @@ func (ps *PostgresStorage) SetMany(values []dto.Metrics) error {
 			countervalue = metric.countervalue + excluded.countervalue;
 	`)
 	qstr := query.String()
-	_, err := ps.db.Exec(qstr, args...)
+	err := util.TryRun(func() (err error) {
+		_, err = ps.db.Exec(qstr, args...)
+		return
+	}, util.IsPGConnectionError)
+
 	if err != nil {
 		ps.logger.Error(err.Error())
 		return err
@@ -120,7 +140,12 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	}
 	query.WriteString(");")
 	qstr := query.String()
-	rows, err := ps.db.Query(qstr, args...)
+	var rows *sql.Rows
+	err := util.TryRun(func() (err error) {
+		rows, err = ps.db.Query(qstr, args...)
+		return
+	}, util.IsPGConnectionError)
+
 	if err != nil {
 		ps.logger.Error(err.Error())
 		return nil, err
@@ -149,7 +174,12 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 		counter sql.NullInt64
 	)
 	m := make([]dto.Metrics, 0)
-	rows, err := ps.db.Query(`SELECT * FROM metric`)
+	var rows *sql.Rows
+	err := util.TryRun(func() (err error) {
+		rows, err = ps.db.Query(`SELECT * FROM metric`)
+		return
+	}, util.IsPGConnectionError)
+
 	if err != nil {
 		return nil, err
 	}
@@ -170,5 +200,9 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 }
 
 func (ps *PostgresStorage) Health() bool {
-	return ps.db != nil && ps.db.Ping() == nil
+	err := util.TryRun(func() (err error) {
+		err = ps.db.Ping()
+		return
+	}, util.IsPGConnectionError)
+	return ps.db != nil && err == nil
 }

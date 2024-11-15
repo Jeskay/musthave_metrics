@@ -79,31 +79,24 @@ func (s *MetricService) LoadSavings() {
 	}
 }
 
-func (s *MetricService) SetGaugeMetric(key string, value float64) {
+func (s *MetricService) SetGaugeMetric(key string, value float64) error {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %f", key, value))
 
-	s.storage.Set(dto.NewGaugeMetrics(key, value))
+	err := s.storage.Set(dto.NewGaugeMetrics(key, value))
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
+	return err
 }
 
 func (s *MetricService) SetCounterMetric(key string, value int64) error {
 	s.Logger.Debug(fmt.Sprintf("Key: %s		Value: %d", key, value))
 
-	if v, ok := s.storage.Get(key); ok {
-		*v.Delta = *v.Delta + value
-		if err := s.storage.Set(v); err != nil {
-			s.Logger.Error(err.Error())
-			return err
-		}
-		return nil
-	}
-	s.storage.Set(dto.NewCounterMetrics(key, value))
+	err := s.storage.Set(dto.NewCounterMetrics(key, value))
 	if s.shouldSaveInstantly() {
 		s.saveMetrics()
 	}
-	return nil
+	return err
 }
 
 func (s *MetricService) SetMetrics(metrics []dto.Metrics) error {

@@ -17,6 +17,13 @@ func NewMemStorage() *MemStorage {
 }
 
 func (ms *MemStorage) Set(value dto.Metrics) error {
+	if v, ok := ms.Get(value.ID); ok && v.Delta != nil {
+		if value.Delta == nil {
+			value.Delta = v.Delta
+		} else {
+			*value.Delta += *v.Delta
+		}
+	}
 	ms.data.Store(value.ID, value)
 	return nil
 }

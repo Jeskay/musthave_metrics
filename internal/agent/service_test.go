@@ -33,12 +33,14 @@ func TestCollectMetrics(t *testing.T) {
 	assert.False(t, ok)
 
 	var i int64
+	var sum int64 = 0
 	for i = 1; i < 100; i++ {
+		sum += i
 		m, ok = svc.storage.Get("PollCount")
 		assert.True(t, ok)
 		assert.Equal(t, string(internal.CounterMetric), m.MType)
 		require.True(t, m.Delta != nil)
-		assert.Equal(t, i, *m.Delta)
+		assert.Equal(t, sum, *m.Delta)
 		svc.CollectMetrics(mStats)
 	}
 
