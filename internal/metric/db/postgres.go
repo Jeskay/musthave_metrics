@@ -200,5 +200,9 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 }
 
 func (ps *PostgresStorage) Health() bool {
-	return ps.db != nil && ps.db.Ping() == nil
+	err := util.TryRun(func() (err error) {
+		err = ps.db.Ping()
+		return
+	}, util.IsPGConnectionError)
+	return ps.db != nil && err == nil
 }
