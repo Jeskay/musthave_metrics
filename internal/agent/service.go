@@ -14,6 +14,7 @@ import (
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
 type AgentService struct {
@@ -36,7 +37,12 @@ func NewAgentService(address string, logger slog.Handler) *AgentService {
 }
 
 func (svc *AgentService) CheckApiAvailability() error {
-	res, err := http.Get(svc.serverAddr + "/ping")
+	var res *http.Response
+	err := util.TryRun(func() (err error) {
+		res, err = http.Get(svc.serverAddr + "/ping")
+		return
+	}, util.IsConnectionRefused)
+
 	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
 	return err
 }
@@ -197,7 +203,12 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 		wg.Add(1)
 		go func(req *http.Request) {
 			defer wg.Done()
-			res, err := http.DefaultClient.Do(req)
+			var res *http.Response
+			err := util.TryRun(func() (err error) {
+				res, err = http.DefaultClient.Do(req)
+				return
+			}, util.IsConnectionRefused)
+
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
