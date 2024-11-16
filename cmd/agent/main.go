@@ -23,7 +23,7 @@ func main() {
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	logger := slog.NewTextHandler(os.Stdout, nil)
-	svc := agent.NewAgentService(conf.Address, logger)
+	svc := agent.NewAgentService(conf.Address, conf.HashKey, logger)
 	err := svc.CheckApiAvailability()
 	if err != nil {
 		slog.Error(err.Error())
@@ -37,6 +37,7 @@ func main() {
 
 func init() {
 	flag.IntVar(&conf.ReportInterval, "r", 10, "report frequency in seconds")
+	flag.StringVar(&conf.HashKey, "k", "", "secret hash key")
 	flag.IntVar(&conf.PollInterval, "p", 2, "poll frequency in seconds")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
