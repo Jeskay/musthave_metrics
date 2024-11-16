@@ -16,8 +16,8 @@ func Init(hashKey string, svc *metric.MetricService, template *template.Template
 	r.Use(middleware.Logger(svc.Logger))
 	r.Use(middleware.HashDecoder(hashKey))
 	r.Use(middleware.HashEncoder(hashKey))
-	r.Use(middleware.Decoder())
-	r.Use(middleware.Encoder())
+	r.Use(middleware.GzipDecoder())
+	r.Use(middleware.GzipEncoder())
 
 	v1 := r.Group("/update")
 	{
