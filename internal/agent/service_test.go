@@ -22,7 +22,7 @@ func TestCollectMetrics(t *testing.T) {
 		GCCPUFraction: 10,
 		PauseNs:       [256]uint64{},
 	}
-	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
+	svc := NewAgentService("localhost:3000", "", slog.NewTextHandler(os.Stdout, nil))
 	svc.CollectMetrics(mStats)
 	m, _ := svc.storage.Get("Alloc")
 	assert.Equal(t, string(internal.GaugeMetric), m.MType)
@@ -66,7 +66,7 @@ func TestPrepareMetrics(t *testing.T) {
 		HeapSys:       0,
 	}
 	reqs := make(chan *http.Request)
-	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
+	svc := NewAgentService("localhost:3000", "", slog.NewTextHandler(os.Stdout, nil))
 	svc.storage.Set(dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)))
 	svc.storage.Set(dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)))
 	svc.storage.Set(dto.NewGaugeMetrics("Frees", float64(mStats.Frees)))

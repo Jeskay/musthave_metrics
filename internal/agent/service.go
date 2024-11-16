@@ -24,14 +24,16 @@ type AgentService struct {
 	updateTick    *time.Ticker
 	pollCount     int64
 	serverAddr    string
+	hashKey       string
 	logger        *slog.Logger
 }
 
-func NewAgentService(address string, logger slog.Handler) *AgentService {
+func NewAgentService(address string, hashKey string, logger slog.Handler) *AgentService {
 	service := &AgentService{
 		storage:    db.NewMemStorage(),
 		serverAddr: "http://" + address,
 		logger:     slog.New(logger),
+		hashKey:    hashKey,
 	}
 	return service
 }
@@ -179,7 +181,7 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 		}
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
-			r, err := request.MetricsPostJson(batch, url)
+			r, err := request.MetricsPostJson(svc.hashKey, batch, url)
 			svc.logger.Debug("post metrics batch", slog.Any("response", r))
 			if err != nil {
 				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
@@ -190,7 +192,7 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 		}
 	}
 	if len(batch) > 0 {
-		if r, err := request.MetricsPostJson(batch, url); err == nil {
+		if r, err := request.MetricsPostJson(svc.hashKey, batch, url); err == nil {
 			requests <- r
 		}
 	}

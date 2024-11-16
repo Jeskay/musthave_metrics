@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Decoder() gin.HandlerFunc {
+func GzipDecoder() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if strings.Contains(ctx.GetHeader("Content-Encoding"), "gzip") {
 			gzReader, err := gzip.NewReader(ctx.Request.Body)
