@@ -10,30 +10,32 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
+	"github.com/shirou/gopsutil/mem"
 )
 
 type AgentService struct {
+	config        *config.AgentConfig
 	JsonAvailable bool
 	storage       internal.Repositories
 	monitorTick   *time.Ticker
 	updateTick    *time.Ticker
 	pollCount     int64
 	serverAddr    string
-	hashKey       string
 	logger        *slog.Logger
 }
 
-func NewAgentService(address string, hashKey string, logger slog.Handler) *AgentService {
+func NewAgentService(conf *config.AgentConfig, logger slog.Handler) *AgentService {
 	service := &AgentService{
 		storage:    db.NewMemStorage(),
-		serverAddr: "http://" + address,
+		serverAddr: "http://" + conf.Address,
 		logger:     slog.New(logger),
-		hashKey:    hashKey,
+		config:     conf,
 	}
 	return service
 }
@@ -85,12 +87,13 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 	loop:
 		for {
-			reqs := make(chan *http.Request)
+			reqs := make(chan *http.Request, svc.config.RateLimit)
 			if svc.JsonAvailable {
-				go svc.PrepareMetricsBatch(reqs, 8)
+				go svc.PrepareMetricsBatch(metricMainList, reqs, 8)
 			} else {
-				go svc.PrepareMetrics(reqs)
+				go svc.PrepareMetrics(metricMainList, reqs)
 			}
+			go svc.PrepareMetrics(metricSecondaryList, reqs)
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -140,11 +143,18 @@ func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	rValue := 1e-307 + rand.Float64()*(1e+308-1e-307)
 	svc.storage.Set(dto.NewGaugeMetrics("RandomValue", float64(rValue)))
 
+	v, err := mem.VirtualMemory()
+	if err == nil {
+		svc.storage.Set(dto.NewGaugeMetrics("TotalMemory", float64(v.Total)))
+		svc.storage.Set(dto.NewGaugeMetrics("FreeMemory", float64(v.Free)))
+		svc.storage.Set(dto.NewGaugeMetrics("CPUutilization1", float64(v.Used)))
+	}
+
 }
 
-func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
+func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Request) {
 	var wg sync.WaitGroup
-	for _, metricName := range metricList {
+	for _, metricName := range metrics {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -171,17 +181,17 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 	close(requests)
 }
 
-func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchSize int) {
+func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
 	batch := make([]dto.Metrics, 0)
 	url := svc.serverAddr + "/updates/"
-	for i, metricName := range metricList {
+	for i, metricName := range metrics {
 		metric, ok := svc.storage.Get(metricName)
 		if !ok {
 			continue
 		}
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
-			r, err := request.MetricsPostJson(svc.hashKey, batch, url)
+			r, err := request.MetricsPostJson(svc.config.HashKey, batch, url)
 			svc.logger.Debug("post metrics batch", slog.Any("response", r))
 			if err != nil {
 				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
@@ -192,7 +202,7 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 		}
 	}
 	if len(batch) > 0 {
-		if r, err := request.MetricsPostJson(svc.hashKey, batch, url); err == nil {
+		if r, err := request.MetricsPostJson(svc.config.HashKey, batch, url); err == nil {
 			requests <- r
 		}
 	}
@@ -201,28 +211,31 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	var wg sync.WaitGroup
-	for req := range requests {
+	for range svc.config.RateLimit {
 		wg.Add(1)
-		go func(req *http.Request) {
-			defer wg.Done()
-			var res *http.Response
-			err := util.TryRun(func() (err error) {
-				res, err = http.DefaultClient.Do(req)
-				return
-			}, util.IsConnectionRefused)
-
-			if err != nil {
-				svc.logger.Error(err.Error())
-				return
-			}
-
-			if _, err = io.Copy(io.Discard, res.Body); err != nil {
-				svc.logger.Error(err.Error())
-			}
-			res.Body.Close()
-
-			svc.logger.Debug(fmt.Sprintf("%v", res))
-		}(req)
+		go func() {
+			svc.sendWorker(requests)
+			wg.Done()
+		}()
 	}
 	wg.Wait()
+}
+
+func (svc *AgentService) sendWorker(jobs <-chan *http.Request) {
+	for req := range jobs {
+		var res *http.Response
+		err := util.TryRun(func() (err error) {
+			res, err = http.DefaultClient.Do(req)
+			return
+		}, util.IsConnectionRefused)
+		if err != nil {
+			svc.logger.Error(err.Error())
+		}
+		if _, err = io.Copy(io.Discard, res.Body); err != nil {
+			svc.logger.Error(err.Error())
+		}
+		res.Body.Close()
+
+		svc.logger.Debug(fmt.Sprintf("%v", res))
+	}
 }

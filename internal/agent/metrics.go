@@ -1,6 +1,6 @@
 package agent
 
-var metricList = [...]string{
+var metricMainList = []string{
 	"Alloc",
 	"BuckHashSys",
 	"Frees",
@@ -30,6 +30,12 @@ var metricList = [...]string{
 	"TotalAlloc",
 	"PollCount",
 	"RandomValue",
+}
+
+var metricSecondaryList = []string{
+	"TotalMemory",
+	"FreeMemory",
+	"CPUutilization1",
 }
 
 type Metric struct {
