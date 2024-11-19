@@ -41,5 +41,6 @@ func NewAgentConfig() *AgentConfig {
 		Address:        "localhost:8080",
 		ReportInterval: 2,
 		PollInterval:   10,
+		RateLimit:      1,
 	}
 }
