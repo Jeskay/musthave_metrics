@@ -22,8 +22,12 @@ func MetricPostJson(hashKey string, metric dto.Metrics, url string) (req *http.R
 	if err = g.Close(); err != nil {
 		return nil, err
 	}
-	req, err = http.NewRequest(http.MethodPost, url, &buf)
-	WriteHash(req, buf.Bytes(), hashKey)
+	if req, err = http.NewRequest(http.MethodPost, url, &buf); err != nil {
+		return
+	}
+	if err := WriteHash(req, buf.Bytes(), hashKey); err != nil {
+		return req, err
+	}
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -43,8 +47,12 @@ func MetricsPostJson(hashKey string, metrics []dto.Metrics, url string) (req *ht
 	if err = g.Close(); err != nil {
 		return nil, err
 	}
-	req, err = http.NewRequest(http.MethodPost, url, &buf)
-	WriteHash(req, buf.Bytes(), hashKey)
+	if req, err = http.NewRequest(http.MethodPost, url, &buf); err != nil {
+		return
+	}
+	if err := WriteHash(req, buf.Bytes(), hashKey); err != nil {
+		return req, err
+	}
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
