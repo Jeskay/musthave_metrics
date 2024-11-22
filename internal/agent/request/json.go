@@ -9,7 +9,7 @@ import (
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
-func MetricPostJson(name string, metric dto.Metrics, url string) (req *http.Request, err error) {
+func MetricPostJson(hashKey string, metric dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	data, err := json.Marshal(metric)
 	if err != nil {
@@ -22,14 +22,19 @@ func MetricPostJson(name string, metric dto.Metrics, url string) (req *http.Requ
 	if err = g.Close(); err != nil {
 		return nil, err
 	}
-	req, err = http.NewRequest(http.MethodPost, url, &buf)
+	if req, err = http.NewRequest(http.MethodPost, url, &buf); err != nil {
+		return
+	}
+	if err := WriteHash(req, buf.Bytes(), hashKey); err != nil {
+		return req, err
+	}
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	return
 }
 
-func MetricsPostJson(metrics []dto.Metrics, url string) (req *http.Request, err error) {
+func MetricsPostJson(hashKey string, metrics []dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	data, err := json.Marshal(metrics)
@@ -42,7 +47,12 @@ func MetricsPostJson(metrics []dto.Metrics, url string) (req *http.Request, err 
 	if err = g.Close(); err != nil {
 		return nil, err
 	}
-	req, err = http.NewRequest(http.MethodPost, url, &buf)
+	if req, err = http.NewRequest(http.MethodPost, url, &buf); err != nil {
+		return
+	}
+	if err := WriteHash(req, buf.Bytes(), hashKey); err != nil {
+		return req, err
+	}
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
