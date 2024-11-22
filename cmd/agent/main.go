@@ -5,10 +5,12 @@ import (
 	"flag"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"regexp"
 	"syscall"
+	"time"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/agent"
@@ -22,8 +24,11 @@ func main() {
 	var endMonitor, endSender chan<- struct{}
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	client := &http.Client{
+		Timeout: 6 * time.Second,
+	}
 	logger := slog.NewTextHandler(os.Stdout, nil)
-	svc := agent.NewAgentService(conf, logger)
+	svc := agent.NewAgentService(client, conf, logger)
 	err := svc.CheckApiAvailability()
 	if err != nil {
 		slog.Error(err.Error())
