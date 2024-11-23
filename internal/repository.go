@@ -17,3 +17,5 @@ const (
 	GaugeMetric   MetricType = "gauge"
 	CounterMetric MetricType = "counter"
 )
+
+const HashHeader = "HashSHA256"

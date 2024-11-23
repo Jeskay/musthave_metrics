@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +22,7 @@ func (h *hashWriter) Write(data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	h.Header().Add("HashSHA256", hex.EncodeToString(hashed))
+	h.Header().Add(internal.HashHeader, hex.EncodeToString(hashed))
 	return h.Write(data)
 }
 
@@ -31,7 +32,7 @@ func (h *hashWriter) WriteHeader(code int) {
 
 func HashEncoder(key string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if ctx.GetHeader("HashSHA256") != "" {
+		if ctx.GetHeader(internal.HashHeader) != "" {
 			ctx.Writer = &hashWriter{ctx.Writer, key}
 		}
 		ctx.Next()
