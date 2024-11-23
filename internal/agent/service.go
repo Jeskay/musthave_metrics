@@ -16,10 +16,13 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
+	"github.com/Jeskay/musthave_metrics/pkg/worker"
+
 	"github.com/shirou/gopsutil/mem"
 )
 
 type AgentService struct {
+	workerPool    *worker.WorkerPool[*http.Request]
 	client        *http.Client
 	config        *config.AgentConfig
 	JsonAvailable bool
@@ -38,6 +41,7 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 		serverAddr: "http://" + conf.Address,
 		logger:     slog.New(logger),
 		config:     conf,
+		workerPool: worker.NewWorkerPool[*http.Request](conf.RateLimit),
 	}
 	return service
 }
@@ -221,19 +225,7 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 }
 
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
-	var wg sync.WaitGroup
-	for range svc.config.RateLimit {
-		wg.Add(1)
-		go func() {
-			svc.sendWorker(requests)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-}
-
-func (svc *AgentService) sendWorker(jobs <-chan *http.Request) {
-	for req := range jobs {
+	svc.workerPool.Run(requests, func(req *http.Request) {
 		var res *http.Response
 		err := util.TryRun(func() (err error) {
 			if res, err = svc.client.Do(req); err != nil {
@@ -249,5 +241,5 @@ func (svc *AgentService) sendWorker(jobs <-chan *http.Request) {
 			svc.logger.Error(err.Error())
 		}
 		svc.logger.Debug(fmt.Sprintf("%v", res))
-	}
+	})
 }
