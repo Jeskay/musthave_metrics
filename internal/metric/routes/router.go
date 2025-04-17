@@ -10,12 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Init(svc *metric.MetricService, template *template.Template) *gin.Engine {
+func Init(hashKey string, svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
 	r.Use(middleware.Logger(svc.Logger))
-	r.Use(middleware.Decoder())
-	r.Use(middleware.Encoder())
+	r.Use(middleware.HashDecoder(hashKey))
+	r.Use(middleware.HashEncoder(hashKey))
+	r.Use(middleware.GzipDecoder())
+	r.Use(middleware.GzipEncoder())
 
 	v1 := r.Group("/update")
 	{

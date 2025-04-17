@@ -29,7 +29,7 @@ func (g *gzipWriter) WriteHeader(code int) {
 	g.ResponseWriter.WriteHeader(code)
 }
 
-func Encoder() gin.HandlerFunc {
+func GzipEncoder() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if strings.Contains(ctx.GetHeader("Accept-Encoding"), "gzip") {
 			gzWriter, err := gzip.NewWriterLevel(ctx.Writer, gzip.BestSpeed)

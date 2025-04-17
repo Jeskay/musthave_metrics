@@ -10,14 +10,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/agent/request"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
+	"github.com/Jeskay/musthave_metrics/pkg/worker"
+
+	"github.com/shirou/gopsutil/mem"
 )
 
 type AgentService struct {
+	workerPool    *worker.WorkerPool[*http.Request]
+	client        *http.Client
+	config        *config.AgentConfig
 	JsonAvailable bool
 	storage       internal.Repositories
 	monitorTick   *time.Ticker
@@ -27,11 +34,14 @@ type AgentService struct {
 	logger        *slog.Logger
 }
 
-func NewAgentService(address string, logger slog.Handler) *AgentService {
+func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.Handler) *AgentService {
 	service := &AgentService{
+		client:     client,
 		storage:    db.NewMemStorage(),
-		serverAddr: "http://" + address,
+		serverAddr: "http://" + conf.Address,
 		logger:     slog.New(logger),
+		config:     conf,
+		workerPool: worker.NewWorkerPool[*http.Request](conf.RateLimit),
 	}
 	return service
 }
@@ -83,12 +93,13 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 	loop:
 		for {
-			reqs := make(chan *http.Request)
+			reqs := make(chan *http.Request, svc.config.RateLimit)
 			if svc.JsonAvailable {
-				go svc.PrepareMetricsBatch(reqs, 8)
+				go svc.PrepareMetricsBatch(metricMainList, reqs, 8)
 			} else {
-				go svc.PrepareMetrics(reqs)
+				go svc.PrepareMetrics(metricMainList, reqs)
 			}
+			go svc.PrepareMetrics(metricSecondaryList, reqs)
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -106,43 +117,59 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	svc.pollCount++
-	svc.storage.Set(dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)))
-	svc.storage.Set(dto.NewGaugeMetrics("BuckHashSys", float64(mStats.BuckHashSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("Frees", float64(mStats.Frees)))
-	svc.storage.Set(dto.NewGaugeMetrics("GCCPUFraction", float64(mStats.GCCPUFraction)))
-	svc.storage.Set(dto.NewGaugeMetrics("GCSys", float64(mStats.GCSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapAlloc", float64(mStats.HeapAlloc)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapInuse", float64(mStats.HeapInuse)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapObjects", float64(mStats.HeapObjects)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapReleased", float64(mStats.HeapReleased)))
-	svc.storage.Set(dto.NewGaugeMetrics("HeapSys", float64(mStats.HeapSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("LastGC", float64(mStats.LastGC)))
-	svc.storage.Set(dto.NewGaugeMetrics("Lookups", float64(mStats.Lookups)))
-	svc.storage.Set(dto.NewGaugeMetrics("MCacheInuse", float64(mStats.MCacheInuse)))
-	svc.storage.Set(dto.NewGaugeMetrics("MCacheSys", float64(mStats.MCacheSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("MSpanInuse", float64(mStats.MSpanInuse)))
-	svc.storage.Set(dto.NewGaugeMetrics("MSpanSys", float64(mStats.MSpanSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("Mallocs", float64(mStats.Mallocs)))
-	svc.storage.Set(dto.NewGaugeMetrics("NextGC", float64(mStats.NextGC)))
-	svc.storage.Set(dto.NewGaugeMetrics("NumForcedGC", float64(mStats.NumForcedGC)))
-	svc.storage.Set(dto.NewGaugeMetrics("NumGC", float64(mStats.NumGC)))
-	svc.storage.Set(dto.NewGaugeMetrics("OtherSys", float64(mStats.OtherSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("PauseTotalNs", float64(mStats.PauseTotalNs)))
-	svc.storage.Set(dto.NewGaugeMetrics("StackInuse", float64(mStats.StackInuse)))
-	svc.storage.Set(dto.NewGaugeMetrics("StackSys", float64(mStats.StackSys)))
-	svc.storage.Set(dto.NewGaugeMetrics("Sys", float64(mStats.Sys)))
-	svc.storage.Set(dto.NewGaugeMetrics("TotalAlloc", float64(mStats.TotalAlloc)))
-
-	svc.storage.Set(dto.NewCounterMetrics("PollCount", svc.pollCount))
 	rValue := 1e-307 + rand.Float64()*(1e+308-1e-307)
-	svc.storage.Set(dto.NewGaugeMetrics("RandomValue", float64(rValue)))
+	err := svc.storage.SetMany([]dto.Metrics{
+		dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)),
+		dto.NewGaugeMetrics("BuckHashSys", float64(mStats.BuckHashSys)),
+		dto.NewGaugeMetrics("Frees", float64(mStats.Frees)),
+		dto.NewGaugeMetrics("GCCPUFraction", float64(mStats.GCCPUFraction)),
+		dto.NewGaugeMetrics("GCSys", float64(mStats.GCSys)),
+		dto.NewGaugeMetrics("HeapAlloc", float64(mStats.HeapAlloc)),
+		dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)),
+		dto.NewGaugeMetrics("HeapInuse", float64(mStats.HeapInuse)),
+		dto.NewGaugeMetrics("HeapObjects", float64(mStats.HeapObjects)),
+		dto.NewGaugeMetrics("HeapReleased", float64(mStats.HeapReleased)),
+		dto.NewGaugeMetrics("HeapSys", float64(mStats.HeapSys)),
+		dto.NewGaugeMetrics("LastGC", float64(mStats.LastGC)),
+		dto.NewGaugeMetrics("Lookups", float64(mStats.Lookups)),
+		dto.NewGaugeMetrics("MCacheInuse", float64(mStats.MCacheInuse)),
+		dto.NewGaugeMetrics("MCacheSys", float64(mStats.MCacheSys)),
+		dto.NewGaugeMetrics("MSpanInuse", float64(mStats.MSpanInuse)),
+		dto.NewGaugeMetrics("MSpanSys", float64(mStats.MSpanSys)),
+		dto.NewGaugeMetrics("Mallocs", float64(mStats.Mallocs)),
+		dto.NewGaugeMetrics("NextGC", float64(mStats.NextGC)),
+		dto.NewGaugeMetrics("NumForcedGC", float64(mStats.NumForcedGC)),
+		dto.NewGaugeMetrics("NumGC", float64(mStats.NumGC)),
+		dto.NewGaugeMetrics("OtherSys", float64(mStats.OtherSys)),
+		dto.NewGaugeMetrics("PauseTotalNs", float64(mStats.PauseTotalNs)),
+		dto.NewGaugeMetrics("StackInuse", float64(mStats.StackInuse)),
+		dto.NewGaugeMetrics("StackSys", float64(mStats.StackSys)),
+		dto.NewGaugeMetrics("Sys", float64(mStats.Sys)),
+		dto.NewGaugeMetrics("TotalAlloc", float64(mStats.TotalAlloc)),
+		dto.NewCounterMetrics("PollCount", svc.pollCount),
+		dto.NewGaugeMetrics("RandomValue", float64(rValue)),
+	})
+	if err != nil {
+		svc.logger.Error(err.Error())
+	}
 
+	if v, err := mem.VirtualMemory(); err == nil {
+		err := svc.storage.SetMany([]dto.Metrics{
+			dto.NewGaugeMetrics("TotalMemory", float64(v.Total)),
+			dto.NewGaugeMetrics("FreeMemory", float64(v.Free)),
+			dto.NewGaugeMetrics("CPUutilization1", float64(v.Used)),
+		})
+		if err != nil {
+			svc.logger.Error(err.Error())
+		}
+	} else {
+		svc.logger.Error(err.Error())
+	}
 }
 
-func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
+func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Request) {
 	var wg sync.WaitGroup
-	for _, metricName := range metricList {
+	for _, metricName := range metrics {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -169,28 +196,28 @@ func (svc *AgentService) PrepareMetrics(requests chan *http.Request) {
 	close(requests)
 }
 
-func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchSize int) {
+func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
 	batch := make([]dto.Metrics, 0)
 	url := svc.serverAddr + "/updates/"
-	for i, metricName := range metricList {
+	for i, metricName := range metrics {
 		metric, ok := svc.storage.Get(metricName)
 		if !ok {
 			continue
 		}
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
-			r, err := request.MetricsPostJson(batch, url)
-			svc.logger.Debug("post metrics batch", slog.Any("response", r))
+			r, err := request.MetricsPostJson(svc.config.HashKey, batch, url)
 			if err != nil {
 				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
 				continue
 			}
+			svc.logger.Debug("post metrics batch", slog.Any("response", r))
 			requests <- r
 			batch = make([]dto.Metrics, 0)
 		}
 	}
 	if len(batch) > 0 {
-		if r, err := request.MetricsPostJson(batch, url); err == nil {
+		if r, err := request.MetricsPostJson(svc.config.HashKey, batch, url); err == nil {
 			requests <- r
 		}
 	}
@@ -198,29 +225,21 @@ func (svc *AgentService) PrepareMetricsBatch(requests chan *http.Request, batchS
 }
 
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
-	var wg sync.WaitGroup
-	for req := range requests {
-		wg.Add(1)
-		go func(req *http.Request) {
-			defer wg.Done()
-			var res *http.Response
-			err := util.TryRun(func() (err error) {
-				res, err = http.DefaultClient.Do(req)
-				return
-			}, util.IsConnectionRefused)
-
-			if err != nil {
-				svc.logger.Error(err.Error())
+	svc.workerPool.Run(requests, func(req *http.Request) {
+		var res *http.Response
+		err := util.TryRun(func() (err error) {
+			if res, err = svc.client.Do(req); err != nil {
 				return
 			}
-
+			defer res.Body.Close()
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
-				svc.logger.Error(err.Error())
+				return
 			}
-			res.Body.Close()
-
-			svc.logger.Debug(fmt.Sprintf("%v", res))
-		}(req)
-	}
-	wg.Wait()
+			return
+		}, util.IsConnectionRefused)
+		if err != nil {
+			svc.logger.Error(err.Error())
+		}
+		svc.logger.Debug(fmt.Sprintf("%v", res))
+	})
 }

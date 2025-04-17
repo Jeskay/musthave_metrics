@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,8 @@ func TestCollectMetrics(t *testing.T) {
 		GCCPUFraction: 10,
 		PauseNs:       [256]uint64{},
 	}
-	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
+	conf := &config.AgentConfig{Address: "localhost:3000"}
+	svc := NewAgentService(http.DefaultClient, conf, slog.NewTextHandler(os.Stdout, nil))
 	svc.CollectMetrics(mStats)
 	m, _ := svc.storage.Get("Alloc")
 	assert.Equal(t, string(internal.GaugeMetric), m.MType)
@@ -66,14 +68,15 @@ func TestPrepareMetrics(t *testing.T) {
 		HeapSys:       0,
 	}
 	reqs := make(chan *http.Request)
-	svc := NewAgentService("localhost:3000", slog.NewTextHandler(os.Stdout, nil))
+	conf := &config.AgentConfig{Address: "localhost:3000"}
+	svc := NewAgentService(http.DefaultClient, conf, slog.NewTextHandler(os.Stdout, nil))
 	svc.storage.Set(dto.NewGaugeMetrics("Alloc", float64(mStats.Alloc)))
 	svc.storage.Set(dto.NewGaugeMetrics("HeapIdle", float64(mStats.HeapIdle)))
 	svc.storage.Set(dto.NewGaugeMetrics("Frees", float64(mStats.Frees)))
 	svc.storage.Set(dto.NewCounterMetrics("PollCount", int64(1)))
 	svc.storage.Set(dto.NewGaugeMetrics("GCCPUFraction", mStats.GCCPUFraction))
 	svc.storage.Set(dto.NewGaugeMetrics("HeapSys", float64(mStats.HeapSys)))
-	go svc.PrepareMetrics(reqs)
+	go svc.PrepareMetrics(metricMainList, reqs)
 	count := 0
 	jsonCount := 0
 	for r := range reqs {
