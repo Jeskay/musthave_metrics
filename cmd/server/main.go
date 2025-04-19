@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -24,8 +25,24 @@ import (
 
 var conf = config.NewServerConfig()
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
 	var storage internal.Repositories
+
+	if buildVersion == "" {
+		buildVersion = "N/A"
+	}
+	if buildDate == "" {
+		buildDate = "N/A"
+	}
+	if buildCommit == "" {
+		buildCommit = "N/A"
+	}
+
+	fmt.Printf("Build version: %s \nBuild date: %s \nBuild commit: %s \n", buildVersion, buildDate, buildCommit)
 
 	zapL := zap.Must(zap.NewProduction())
 	t, err := loadTemplate()

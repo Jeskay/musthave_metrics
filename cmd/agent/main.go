@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -19,9 +20,25 @@ import (
 
 var conf = config.NewAgentConfig()
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
 	sig := make(chan os.Signal, 1)
 	var endMonitor, endSender chan<- struct{}
+
+	if buildVersion == "" {
+		buildVersion = "N/A"
+	}
+	if buildDate == "" {
+		buildDate = "N/A"
+	}
+	if buildCommit == "" {
+		buildCommit = "N/A"
+	}
+
+	fmt.Printf("Build version: %s \nBuild date: %s \nBuild commit: %s \n", buildVersion, buildDate, buildCommit)
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	client := &http.Client{
