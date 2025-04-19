@@ -12,21 +12,21 @@ import (
 )
 
 type MetricService struct {
-	storage      internal.Repositories
-	file_storage *db.FileStorage
-	Logger       *slog.Logger
-	conf         config.ServerConfig
-	ticker       *time.Ticker
-	close        chan struct{}
+	storage     internal.Repositories
+	fileStorage *db.FileStorage
+	Logger      *slog.Logger
+	conf        config.ServerConfig
+	ticker      *time.Ticker
+	close       chan struct{}
 }
 
-func NewMetricService(conf config.ServerConfig, logger slog.Handler, file_storage *db.FileStorage, memory_storage internal.Repositories) *MetricService {
+func NewMetricService(conf config.ServerConfig, logger slog.Handler, fileStorage *db.FileStorage, memoryStorage internal.Repositories) *MetricService {
 	service := &MetricService{
-		storage:      memory_storage,
-		file_storage: file_storage,
-		Logger:       slog.New(logger),
-		conf:         conf,
-		close:        make(chan struct{}),
+		storage:     memoryStorage,
+		fileStorage: fileStorage,
+		Logger:      slog.New(logger),
+		conf:        conf,
+		close:       make(chan struct{}),
 	}
 	if !service.databaseAccessible() {
 		service.LoadSavings()
@@ -45,7 +45,7 @@ func (s *MetricService) databaseAccessible() bool {
 
 func (s *MetricService) saveMetrics() {
 	if metrics, err := s.storage.GetAll(); err == nil {
-		s.file_storage.Save(metrics)
+		s.fileStorage.Save(metrics)
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *MetricService) StartSaving() {
 }
 
 func (s *MetricService) LoadSavings() {
-	if metrics, err := s.file_storage.Load(); err == nil {
+	if metrics, err := s.fileStorage.Load(); err == nil {
 		for _, m := range metrics {
 			s.storage.Set(m)
 		}

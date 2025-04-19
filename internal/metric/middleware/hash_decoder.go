@@ -25,17 +25,17 @@ func HashDecoder(key string) gin.HandlerFunc {
 				return
 			}
 			ctx.Set(gin.BodyBytesKey, payload)
-			hex_data, err := hex.DecodeString(hash)
+			hexData, err := hex.DecodeString(hash)
 			if err != nil {
 				ctx.AbortWithStatus(http.StatusBadRequest)
 				return
 			}
-			n_data, err := hashBytes(payload, key)
+			nData, err := hashBytes(payload, key)
 			if err != nil {
 				ctx.AbortWithStatus(http.StatusBadRequest)
 				return
 			}
-			if !bytes.Equal(n_data, hex_data) {
+			if !bytes.Equal(nData, hexData) {
 				ctx.AbortWithStatus(http.StatusBadRequest)
 				return
 			}

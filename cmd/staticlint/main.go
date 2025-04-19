@@ -36,7 +36,7 @@ import (
 
 func main() {
 
-	var staticChecks []*analysis.Analyzer = []*analysis.Analyzer{
+	staticChecks := []*analysis.Analyzer{
 		printf.Analyzer,
 		shadow.Analyzer,
 		shift.Analyzer,

@@ -46,10 +46,11 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 	return service
 }
 
-func (svc *AgentService) CheckApiAvailability() error {
+func (svc *AgentService) CheckAPIAvailability() error {
 	var res *http.Response
 	err := util.TryRun(func() (err error) {
 		res, err = http.Get(svc.serverAddr + "/ping")
+		res.Body.Close()
 		return
 	}, util.IsConnectionRefused)
 
@@ -229,6 +230,7 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 		var res *http.Response
 		err := util.TryRun(func() (err error) {
 			if res, err = svc.client.Do(req); err != nil {
+				res.Body.Close()
 				return
 			}
 			defer res.Body.Close()

@@ -143,6 +143,9 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	var rows *sql.Rows
 	err := util.TryRun(func() (err error) {
 		rows, err = ps.db.Query(qstr, args...)
+		if rows.Err() != nil {
+			return rows.Err()
+		}
 		return
 	}, util.IsPGConnectionError)
 
@@ -177,6 +180,9 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 	var rows *sql.Rows
 	err := util.TryRun(func() (err error) {
 		rows, err = ps.db.Query(`SELECT * FROM metric`)
+		if rows.Err() != nil {
+			return rows.Err()
+		}
 		return
 	}, util.IsPGConnectionError)
 

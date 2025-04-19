@@ -46,7 +46,7 @@ func main() {
 	}
 	logger := slog.NewTextHandler(os.Stdout, nil)
 	svc := agent.NewAgentService(client, conf, logger)
-	err := svc.CheckApiAvailability()
+	err := svc.CheckAPIAvailability()
 	if err != nil {
 		slog.Error(err.Error())
 	}
