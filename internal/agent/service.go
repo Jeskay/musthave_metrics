@@ -50,7 +50,9 @@ func (svc *AgentService) CheckAPIAvailability() error {
 	var res *http.Response
 	err := util.TryRun(func() (err error) {
 		res, err = http.Get(svc.serverAddr + "/ping")
-		res.Body.Close()
+		if err == nil {
+			defer res.Body.Close()
+		}
 		return
 	}, util.IsConnectionRefused)
 
@@ -229,11 +231,11 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	svc.workerPool.Run(requests, func(req *http.Request) {
 		var res *http.Response
 		err := util.TryRun(func() (err error) {
+			defer res.Body.Close()
 			if res, err = svc.client.Do(req); err != nil {
-				res.Body.Close()
 				return
 			}
-			defer res.Body.Close()
+
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
 				return
 			}
