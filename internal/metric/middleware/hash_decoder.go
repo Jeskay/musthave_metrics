@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/Jeskay/musthave_metrics/internal"
+
 	"github.com/gin-gonic/gin"
 )
 

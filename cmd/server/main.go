@@ -10,6 +10,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
@@ -17,6 +18,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
+	"github.com/pkg/profile"
 	"go.uber.org/zap"
 	"go.uber.org/zap/exp/zapslog"
 
@@ -31,6 +33,9 @@ var buildCommit string
 
 func main() {
 	var storage internal.Repositories
+
+	prof := profile.Start(profile.MemProfile)
+	time.AfterFunc(time.Second*30, prof.Stop)
 
 	if buildVersion == "" {
 		buildVersion = "N/A"

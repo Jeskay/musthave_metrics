@@ -8,6 +8,7 @@ import (
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/util"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 

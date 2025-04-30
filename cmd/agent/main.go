@@ -15,6 +15,7 @@ import (
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/agent"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
 )
 
@@ -46,7 +47,10 @@ func main() {
 	}
 	logger := slog.NewTextHandler(os.Stdout, nil)
 	svc := agent.NewAgentService(client, conf, logger)
-	err := svc.CheckAPIAvailability()
+	err := util.TryRun(func() error {
+		return svc.CheckAPIAvailability()
+	}, util.IsConnectionRefused)
+
 	if err != nil {
 		slog.Error(err.Error())
 	}

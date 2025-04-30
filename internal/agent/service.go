@@ -47,15 +47,10 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 }
 
 func (svc *AgentService) CheckAPIAvailability() error {
-	var res *http.Response
-	err := util.TryRun(func() (err error) {
-		res, err = http.Get(svc.serverAddr + "/ping")
-		if err == nil {
-			defer res.Body.Close()
-		}
-		return
-	}, util.IsConnectionRefused)
-
+	res, err := http.Get(svc.serverAddr + "/ping")
+	if res != nil {
+		defer res.Body.Close()
+	}
 	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
 	return err
 }
@@ -97,12 +92,16 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	loop:
 		for {
 			reqs := make(chan *http.Request, svc.config.RateLimit)
-			if svc.JsonAvailable {
-				go svc.PrepareMetricsBatch(metricMainList, reqs, 8)
-			} else {
-				go svc.PrepareMetrics(metricMainList, reqs)
-			}
-			go svc.PrepareMetrics(metricSecondaryList, reqs)
+			go func() {
+				if svc.JsonAvailable {
+					svc.PrepareMetricsBatch(metricMainList, reqs, 8)
+				} else {
+					svc.PrepareMetrics(metricMainList, reqs)
+				}
+				svc.PrepareMetrics(metricSecondaryList, reqs)
+				close(reqs)
+			}()
+
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -196,7 +195,6 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 		}()
 	}
 	wg.Wait()
-	close(requests)
 }
 
 func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
@@ -224,18 +222,18 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 			requests <- r
 		}
 	}
-	close(requests)
 }
 
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	svc.workerPool.Run(requests, func(req *http.Request) {
-		var res *http.Response
 		err := util.TryRun(func() (err error) {
-			defer res.Body.Close()
-			if res, err = svc.client.Do(req); err != nil {
+			res, err := svc.client.Do(req)
+			if res != nil {
+				defer res.Body.Close()
+			}
+			if err != nil {
 				return
 			}
-
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
 				return
 			}
@@ -244,6 +242,5 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 		if err != nil {
 			svc.logger.Error(err.Error())
 		}
-		svc.logger.Debug(fmt.Sprintf("%v", res))
 	})
 }
