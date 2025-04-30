@@ -3,8 +3,9 @@ package middleware
 import (
 	"compress/gzip"
 	"fmt"
-	"net/http"
+	"io"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,20 +30,38 @@ func (g *gzipWriter) WriteHeader(code int) {
 	g.ResponseWriter.WriteHeader(code)
 }
 
-func GzipEncoder() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		if strings.Contains(ctx.GetHeader("Accept-Encoding"), "gzip") {
-			gzWriter, err := gzip.NewWriterLevel(ctx.Writer, gzip.BestSpeed)
-			if err != nil {
-				ctx.AbortWithStatus(http.StatusBadRequest)
-			}
-			ctx.Writer = &gzipWriter{ctx.Writer, gzWriter}
+type gzipHandler struct {
+	gzPool sync.Pool
+}
+
+func NewGzipHandler() *gzipHandler {
+	return &gzipHandler{
+		gzPool: sync.Pool{
+			New: func() interface{} {
+				gz, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+				return gz
+			},
+		},
+	}
+}
+
+func (g *gzipHandler) Handle(ctx *gin.Context) {
+	if strings.Contains(ctx.GetHeader("Accept-Encoding"), "gzip") {
+		if gz, ok := g.gzPool.Get().(*gzip.Writer); ok {
+			gz.Reset(ctx.Writer)
 			ctx.Header("Content-Encoding", "gzip")
+			ctx.Writer = &gzipWriter{ctx.Writer, gz}
 			defer func() {
-				ctx.Header("Content-Length", fmt.Sprint(ctx.Writer.Size()))
-				gzWriter.Close()
+				if ctx.Writer.Size() < 0 {
+					gz.Reset(io.Discard)
+				}
+				gz.Close()
+				if ctx.Writer.Size() > -1 {
+					ctx.Header("Content-Length", fmt.Sprint(ctx.Writer.Size()))
+				}
+				g.gzPool.Put(gz)
 			}()
 		}
-		ctx.Next()
 	}
+	ctx.Next()
 }
