@@ -1,7 +1,9 @@
+// Package internal contains structures and variables related to application business logic.
 package internal
 
 import dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 
+// Repositories represents metrics storage functionality.
 type Repositories interface {
 	Set(metric dto.Metrics) error
 	SetMany(values []dto.Metrics) error

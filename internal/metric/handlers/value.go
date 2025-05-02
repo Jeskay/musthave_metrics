@@ -10,6 +10,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetCounterMetric handles counter metric value request.
+//
+//	Method: GET
+//	Endpoint: /value/counter/{name}
+//
+// Example usage with curl:
+//
+//	curl -X GET http://localhost:9009/value/counter/testMetric
+//
+//	On success, returns HTTP 200 OK with string value of requested metric.
+//	On requesting invalid metric, returns HTTP 404 Not found.
 func GetCounterMetric(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
@@ -23,6 +34,27 @@ func GetCounterMetric(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+// GetMetricJson handles metric value request in JSON format.
+//
+//	Method: POST
+//	Endpoint: /value/
+//
+// Expected JSON body:
+//
+//	{
+//		"id": "metric1",
+//		"type": "counter"
+//	}
+//
+// Example usage with curl:
+//
+//	curl -X POST http://localhost:9009/value/ \
+//			-H "Content-Type: application/json"
+//			-d '{"id": "metric1", "type": "counter"}'
+//
+//	On success, returns HTTP 200 OK with metric value.
+//	On invalid JSON body or metric type returns HTTP 400 Bad request.
+//	On requesting invalid metric returns HTTP 404 Not found.
 func GetMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var metric dto.Metrics
@@ -51,6 +83,17 @@ func GetMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+// GetGaugeMetric handles gauge metric value request.
+//
+//	Method: GET
+//	Endpoint: /value/gauge/{name}
+//
+// Example usage with curl:
+//
+//	curl -X GET http://localhost:9009/value/gauge/metric1
+//
+//	On success, returns HTTP 200 OK with metric value.
+//	On requesting invalid metric returns HTTP 404 Not found.
 func GetGaugeMetric(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")

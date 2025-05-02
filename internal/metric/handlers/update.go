@@ -10,6 +10,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// UpdateCounterMetricRaw handles raw update requests that target counter metrics.
+//
+//	Method: POST
+//	Endpoint: /update/counter/{name}/{value}
+//
+// Example usage with curl:
+//
+//	curl -X POST http://localhost:9009/update/counter/test/100
+//
+//	On success, returns HTTP 200 OK.
+//	On invalid value returns HTTP 400 Bad request.
 func UpdateCounterMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
@@ -26,6 +37,27 @@ func UpdateCounterMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+// UpdateMetricJson handles update requests in json format.
+//
+//	Method: POST
+//	Endpoint: /update/
+//
+// Expected JSON body:
+//
+//	{
+//		"id": "metric1",
+//		"type": "counter",
+//		"delta": 300
+//	}
+//
+// Example usage with curl:
+//
+//	curl -X POST http://localhost:9009/update/ \
+//			-H "Content-Type: application/json"
+//			-d '{"id": "metric1", "type": "counter", "delta": 300}'
+//
+//	On success, returns HTTP 200 OK with updated metric.
+//	On invalid JSON body returns HTTP 400 Bad request.
 func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var metric dto.Metrics
@@ -50,6 +82,34 @@ func UpdateMetricJson(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+// UpdateMetricsJson handles update requests for multiple metrics in JSON format.
+//
+//	Method: POST
+//	Endpoint: /updates/
+//
+// Expected JSON body:
+//
+//	[
+//		{
+//			"id": "metric1",
+//			"type": "counter",
+//			"delta": 100
+//		},
+//		{
+//			"id": "metric1",
+//			"type": "counter",
+//			"delta": 200
+//		}
+//	]
+//
+// Example usage with curl:
+//
+//	curl -X POST http://localhost:9009/updates/ \
+//			-H "Content-Type: application/json"
+//			-d '[{"id": "metric1", "type": "counter", "delta": 300}, {"id": "metric2", "type": "counter", "delta": 200}]'
+//
+//	On success, returns HTTP 200 OK.
+//	On invalid JSON format returns HTTP 400 Bad request.
 func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var metrics []dto.Metrics
@@ -73,6 +133,17 @@ func UpdateMetricsJson(svc *metric.MetricService) gin.HandlerFunc {
 	}
 }
 
+// UpdateGaugeMetricRaw handles raw update requests that target gauge metric.
+//
+//	Method: POST
+//	Endpoint: /update/gauge/{name}/{value}
+//
+// Example usage with curl:
+//
+//	curl -X POST http://localhost:9009/update/gauge/test/100.1
+//
+//	On success, returns HTTP 200 OK.
+//	On invalid value returns HTTP 400 Bad request.
 func UpdateGaugeMetricRaw(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")

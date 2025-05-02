@@ -34,6 +34,8 @@ type gzipHandler struct {
 	gzPool sync.Pool
 }
 
+// NewGzipHandlers returns a new handler for encoding responses in gzip format.
+// Handler uses sync.Pool to optimize memory usage.
 func NewGzipHandler() *gzipHandler {
 	return &gzipHandler{
 		gzPool: sync.Pool{
@@ -45,6 +47,7 @@ func NewGzipHandler() *gzipHandler {
 	}
 }
 
+// Handle checks whether a client accepts gzip encoding format and if so, compresses the response.
 func (g *gzipHandler) Handle(ctx *gin.Context) {
 	if strings.Contains(ctx.GetHeader("Accept-Encoding"), "gzip") {
 		if gz, ok := g.gzPool.Get().(*gzip.Writer); ok {

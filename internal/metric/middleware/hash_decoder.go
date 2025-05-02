@@ -11,6 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HashDecoder returns function that handles requests with hash sum.
+// If a request has hash sum header, handler function checks if the
+// content of the request has been modified and aborts request when hashes do not align.
 func HashDecoder(key string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		_, ok := ctx.Request.Header[http.CanonicalHeaderKey(internal.HashHeader)]

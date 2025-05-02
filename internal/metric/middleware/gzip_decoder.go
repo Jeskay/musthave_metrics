@@ -8,6 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GzipDecoder returns handler function which decompresses the request
+// body if it has been compressed using gzip.
 func GzipDecoder() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if strings.Contains(ctx.GetHeader("Content-Encoding"), "gzip") {

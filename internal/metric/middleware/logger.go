@@ -1,3 +1,5 @@
+// Package middleware contains realization of the function and handlers that
+// are executed before and/or after requests.
 package middleware
 
 import (
@@ -7,6 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Logger returns handler function which logs incoming request and outgoing response data.
+// Function outputs request URI, method and handling time. Also the information includes
+// response status and size.
 func Logger(logger *slog.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		t := time.Now()
