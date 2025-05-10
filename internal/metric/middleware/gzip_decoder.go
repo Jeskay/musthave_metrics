@@ -16,6 +16,7 @@ func GzipDecoder() gin.HandlerFunc {
 			gzReader, err := gzip.NewReader(ctx.Request.Body)
 			if err != nil {
 				ctx.AbortWithStatus(http.StatusBadRequest)
+				return
 			}
 			ctx.Request.Body = gzReader
 			defer gzReader.Close()

@@ -129,21 +129,10 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 		counter sql.NullInt64
 	)
 	m := make([]dto.Metrics, 0)
-	args := make([]any, len(keys))
-	var query strings.Builder
-	query.WriteString("SELECT * FROM metric WHERE name IN (")
-	for i, k := range keys {
-		if i != 0 {
-			query.WriteString(", ")
-		}
-		query.WriteString(fmt.Sprintf("$%d", i+1))
-		args[i] = k
-	}
-	query.WriteString(");")
-	qstr := query.String()
+	qstr := "SELECT * FROM metric WHERE name = ANY($1)"
 	var rows *sql.Rows
 	err := util.TryRun(func() (err error) {
-		rows, err = ps.db.Query(qstr, args...)
+		rows, err = ps.db.Query(qstr, keys)
 		if err == nil {
 			err = rows.Err()
 		}
