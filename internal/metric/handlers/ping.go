@@ -3,8 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/gin-gonic/gin"
+
+	"github.com/Jeskay/musthave_metrics/internal/metric"
 )
 
 // Ping handles ping request.

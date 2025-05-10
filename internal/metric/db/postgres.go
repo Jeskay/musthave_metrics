@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/util"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgresStorage struct {
@@ -144,8 +144,8 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	var rows *sql.Rows
 	err := util.TryRun(func() (err error) {
 		rows, err = ps.db.Query(qstr, args...)
-		if rows.Err() != nil {
-			return rows.Err()
+		if err == nil {
+			err = rows.Err()
 		}
 		return
 	}, util.IsPGConnectionError)

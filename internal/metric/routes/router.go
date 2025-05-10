@@ -4,10 +4,11 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
 	"github.com/Jeskay/musthave_metrics/internal/metric/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 func Init(hashKey string, svc *metric.MetricService, template *template.Template) *gin.Engine {

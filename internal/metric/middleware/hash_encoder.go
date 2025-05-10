@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/Jeskay/musthave_metrics/internal"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/Jeskay/musthave_metrics/internal"
 )
 
 type hashWriter struct {

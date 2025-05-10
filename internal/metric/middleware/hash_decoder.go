@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/Jeskay/musthave_metrics/internal"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/Jeskay/musthave_metrics/internal"
 )
 
 // HashDecoder returns function that handles requests with hash sum.

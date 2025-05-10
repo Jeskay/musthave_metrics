@@ -13,10 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/caarlos0/env"
+
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/agent"
 	"github.com/Jeskay/musthave_metrics/internal/util"
-	"github.com/caarlos0/env"
 )
 
 var conf = config.NewAgentConfig()

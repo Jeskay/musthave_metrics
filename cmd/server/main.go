@@ -12,17 +12,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Jeskay/musthave_metrics/config"
-	"github.com/Jeskay/musthave_metrics/internal"
-	"github.com/Jeskay/musthave_metrics/internal/metric/db"
-	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
-	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
 	"github.com/pkg/profile"
 	"go.uber.org/zap"
 	"go.uber.org/zap/exp/zapslog"
 
+	"github.com/Jeskay/musthave_metrics/config"
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
+	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
 var conf = config.NewServerConfig()

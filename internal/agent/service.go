@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/mem"
+
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
@@ -19,8 +21,6 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/Jeskay/musthave_metrics/pkg/worker"
-
-	"github.com/shirou/gopsutil/mem"
 )
 
 // AgentService struct provides the functionality of collecting and sending metric data to the server.
