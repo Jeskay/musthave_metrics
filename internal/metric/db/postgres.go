@@ -145,7 +145,7 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		if err := rows.Scan(&name, &counter, &gauge); err != nil {
+		if err = rows.Scan(&name, &counter, &gauge); err != nil {
 			ps.logger.Error(err.Error())
 			return nil, err
 		}
@@ -157,7 +157,11 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 		}
 		m = append(m, metric)
 	}
-	return m, nil
+	if rows.Err() != nil {
+		ps.logger.Error(rows.Err().Error())
+		return nil, rows.Err()
+	}
+	return m, err
 }
 
 func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
@@ -182,6 +186,7 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 	defer rows.Close()
 	for rows.Next() {
 		if err := rows.Scan(&name, &counter, &gauge); err != nil {
+			ps.logger.Error(err.Error())
 			return nil, err
 		}
 		var metric dto.Metrics
@@ -191,6 +196,10 @@ func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
 			metric = dto.NewGaugeMetrics(name, gauge.Float64)
 		}
 		m = append(m, metric)
+	}
+	if rows.Err() != nil {
+		ps.logger.Error(rows.Err().Error())
+		return m, rows.Err()
 	}
 	return m, nil
 }
