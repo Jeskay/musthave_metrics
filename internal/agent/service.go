@@ -1,3 +1,5 @@
+// Package agent contains the business logic and data structures of metric agent.
+// The agent sends various memory data over small intervals to the server which collects and stores it.
 package agent
 
 import (
@@ -10,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/mem"
+
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
@@ -17,10 +21,9 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/Jeskay/musthave_metrics/pkg/worker"
-
-	"github.com/shirou/gopsutil/mem"
 )
 
+// AgentService struct provides the functionality of collecting and sending metric data to the server.
 type AgentService struct {
 	workerPool    *worker.WorkerPool[*http.Request]
 	client        *http.Client
@@ -34,6 +37,7 @@ type AgentService struct {
 	logger        *slog.Logger
 }
 
+// NewAgentService function initializes and returns new instance of AgentService.
 func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.Handler) *AgentService {
 	service := &AgentService{
 		client:     client,
@@ -46,17 +50,17 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 	return service
 }
 
-func (svc *AgentService) CheckApiAvailability() error {
-	var res *http.Response
-	err := util.TryRun(func() (err error) {
-		res, err = http.Get(svc.serverAddr + "/ping")
-		return
-	}, util.IsConnectionRefused)
-
+// CheckAPIAvailability of the metric server and returns error if it is unaccessible.
+func (svc *AgentService) CheckAPIAvailability() error {
+	res, err := http.Get(svc.serverAddr + "/ping")
+	if res != nil {
+		defer res.Body.Close()
+	}
 	svc.JsonAvailable = (err == nil) && (res.StatusCode == http.StatusOK)
 	return err
 }
 
+// StartMonitoring function initiates the process of collecting memory metrics to store in agent's memory storage.
 func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{} {
 	if svc.monitorTick != nil {
 		return nil
@@ -83,6 +87,8 @@ func (svc *AgentService) StartMonitoring(interval time.Duration) chan<- struct{}
 	return quit
 }
 
+// StartSending function initiates the process of sending collected data from in-memory storage to the metric server.
+// If JSON format is supported by the API, the agent will send metrics in batches thus saving on the amount of requests.
 func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	if svc.updateTick != nil {
 		return nil
@@ -94,12 +100,16 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	loop:
 		for {
 			reqs := make(chan *http.Request, svc.config.RateLimit)
-			if svc.JsonAvailable {
-				go svc.PrepareMetricsBatch(metricMainList, reqs, 8)
-			} else {
-				go svc.PrepareMetrics(metricMainList, reqs)
-			}
-			go svc.PrepareMetrics(metricSecondaryList, reqs)
+			go func() {
+				if svc.JsonAvailable {
+					svc.PrepareMetricsBatch(metricMainList, reqs, 8)
+				} else {
+					svc.PrepareMetrics(metricMainList, reqs)
+				}
+				svc.PrepareMetrics(metricSecondaryList, reqs)
+				close(reqs)
+			}()
+
 			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
@@ -115,6 +125,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 	return quit
 }
 
+// CollectMetrics function saves current memory data to the memory storage of the agent.
 func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	svc.pollCount++
 	rValue := 1e-307 + rand.Float64()*(1e+308-1e-307)
@@ -167,6 +178,7 @@ func (svc *AgentService) CollectMetrics(mStats *runtime.MemStats) {
 	}
 }
 
+// PrepareMetrics function assembles metrics data from agent's storage into HTTP requests to send.
 func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Request) {
 	var wg sync.WaitGroup
 	for _, metricName := range metrics {
@@ -193,9 +205,10 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 		}()
 	}
 	wg.Wait()
-	close(requests)
 }
 
+// PrepareMetricsBatch function assembles metrics data from agent's storage
+// into batch HTTP requests of specified size to send to the server.
 func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
 	batch := make([]dto.Metrics, 0)
 	url := svc.serverAddr + "/updates/"
@@ -221,17 +234,19 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 			requests <- r
 		}
 	}
-	close(requests)
 }
 
+// SendMetrics function starts sending of the prepared HTTP requests to metric server.
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 	svc.workerPool.Run(requests, func(req *http.Request) {
-		var res *http.Response
 		err := util.TryRun(func() (err error) {
-			if res, err = svc.client.Do(req); err != nil {
+			res, err := svc.client.Do(req)
+			if res != nil {
+				defer res.Body.Close()
+			}
+			if err != nil {
 				return
 			}
-			defer res.Body.Close()
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
 				return
 			}
@@ -240,6 +255,5 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 		if err != nil {
 			svc.logger.Error(err.Error())
 		}
-		svc.logger.Debug(fmt.Sprintf("%v", res))
 	})
 }

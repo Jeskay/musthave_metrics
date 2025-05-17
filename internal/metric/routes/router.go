@@ -4,10 +4,11 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
 	"github.com/Jeskay/musthave_metrics/internal/metric/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 func Init(hashKey string, svc *metric.MetricService, template *template.Template) *gin.Engine {
@@ -17,7 +18,7 @@ func Init(hashKey string, svc *metric.MetricService, template *template.Template
 	r.Use(middleware.HashDecoder(hashKey))
 	r.Use(middleware.HashEncoder(hashKey))
 	r.Use(middleware.GzipDecoder())
-	r.Use(middleware.GzipEncoder())
+	r.Use(middleware.NewGzipHandler().Handle)
 
 	v1 := r.Group("/update")
 	{

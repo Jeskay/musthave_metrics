@@ -5,10 +5,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Jeskay/musthave_metrics/internal"
-	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Jeskay/musthave_metrics/internal"
+	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
 func TestAsyncAccessStorage(t *testing.T) {

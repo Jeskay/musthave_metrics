@@ -4,28 +4,50 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
-	"github.com/Jeskay/musthave_metrics/config"
-	"github.com/Jeskay/musthave_metrics/internal"
-	"github.com/Jeskay/musthave_metrics/internal/metric/db"
-	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
-	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/caarlos0/env"
+	"github.com/pkg/profile"
 	"go.uber.org/zap"
 	"go.uber.org/zap/exp/zapslog"
 
+	"github.com/Jeskay/musthave_metrics/config"
+	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
+	"github.com/Jeskay/musthave_metrics/internal/metric/db"
+	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
 var conf = config.NewServerConfig()
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
 	var storage internal.Repositories
+
+	prof := profile.Start(profile.MemProfile)
+	time.AfterFunc(time.Second*30, prof.Stop)
+
+	if buildVersion == "" {
+		buildVersion = "N/A"
+	}
+	if buildDate == "" {
+		buildDate = "N/A"
+	}
+	if buildCommit == "" {
+		buildCommit = "N/A"
+	}
+
+	fmt.Printf("Build version: %s \nBuild date: %s \nBuild commit: %s \n", buildVersion, buildDate, buildCommit)
 
 	zapL := zap.Must(zap.NewProduction())
 	t, err := loadTemplate()

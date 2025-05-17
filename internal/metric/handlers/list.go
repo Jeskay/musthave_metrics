@@ -1,21 +1,25 @@
+// Package handlers contains functions that handle incoming http requests.
 package handlers
 
 import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
-	"github.com/gin-gonic/gin"
 )
 
+// MetricString stores metric information in string format.
 type MetricString struct {
-	Name  string
-	Type  string
-	Value string
+	Name  string // Name of the metric
+	Type  string // Type of the metric (gauge or counter)
+	Value string // Value of the metric
 }
 
+// NewMetricString returns new instance of MetricString.
 func NewMetricString(metric dto.Metrics) MetricString {
 	mStr := MetricString{
 		Name: metric.ID,
@@ -29,6 +33,16 @@ func NewMetricString(metric dto.Metrics) MetricString {
 	return mStr
 }
 
+// ListMetrics handles metric list request.
+//
+//	Method: GET
+//	Endpoint: /
+//
+// Example usage with curl:
+//
+//	curl -X GET http://localhost:9009/
+//
+// On success, returns HTML page with list of all available metrics.
 func ListMetrics(svc *metric.MetricService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 

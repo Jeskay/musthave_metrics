@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/util"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgresStorage struct {
@@ -128,26 +129,58 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 		counter sql.NullInt64
 	)
 	m := make([]dto.Metrics, 0)
-	args := make([]any, len(keys))
-	var query strings.Builder
-	query.WriteString("SELECT * FROM metric WHERE name IN (")
-	for i, k := range keys {
-		if i != 0 {
-			query.WriteString(", ")
-		}
-		query.WriteString(fmt.Sprintf("$%d", i+1))
-		args[i] = k
-	}
-	query.WriteString(");")
-	qstr := query.String()
+	qstr := "SELECT * FROM metric WHERE name = ANY($1)"
 	var rows *sql.Rows
 	err := util.TryRun(func() (err error) {
-		rows, err = ps.db.Query(qstr, args...)
+		rows, err = ps.db.Query(qstr, keys)
+		if err == nil {
+			err = rows.Err()
+		}
 		return
 	}, util.IsPGConnectionError)
 
 	if err != nil {
 		ps.logger.Error(err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err = rows.Scan(&name, &counter, &gauge); err != nil {
+			ps.logger.Error(err.Error())
+			return nil, err
+		}
+		var metric dto.Metrics
+		if counter.Valid {
+			metric = dto.NewCounterMetrics(name, counter.Int64)
+		} else {
+			metric = dto.NewGaugeMetrics(name, gauge.Float64)
+		}
+		m = append(m, metric)
+	}
+	if rows.Err() != nil {
+		ps.logger.Error(rows.Err().Error())
+		return nil, rows.Err()
+	}
+	return m, err
+}
+
+func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
+	var (
+		name    string
+		gauge   sql.NullFloat64
+		counter sql.NullInt64
+	)
+	m := make([]dto.Metrics, 0)
+	var rows *sql.Rows
+	err := util.TryRun(func() (err error) {
+		rows, err = ps.db.Query(`SELECT * FROM metric`)
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+		return
+	}, util.IsPGConnectionError)
+
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
@@ -164,37 +197,9 @@ func (ps *PostgresStorage) GetMany(keys []string) ([]dto.Metrics, error) {
 		}
 		m = append(m, metric)
 	}
-	return m, nil
-}
-
-func (ps *PostgresStorage) GetAll() ([]dto.Metrics, error) {
-	var (
-		name    string
-		gauge   sql.NullFloat64
-		counter sql.NullInt64
-	)
-	m := make([]dto.Metrics, 0)
-	var rows *sql.Rows
-	err := util.TryRun(func() (err error) {
-		rows, err = ps.db.Query(`SELECT * FROM metric`)
-		return
-	}, util.IsPGConnectionError)
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		if err := rows.Scan(&name, &counter, &gauge); err != nil {
-			return nil, err
-		}
-		var metric dto.Metrics
-		if counter.Valid {
-			metric = dto.NewCounterMetrics(name, counter.Int64)
-		} else {
-			metric = dto.NewGaugeMetrics(name, gauge.Float64)
-		}
-		m = append(m, metric)
+	if rows.Err() != nil {
+		ps.logger.Error(rows.Err().Error())
+		return m, rows.Err()
 	}
 	return m, nil
 }

@@ -4,8 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/gin-gonic/gin"
+
+	"github.com/Jeskay/musthave_metrics/internal"
 )
 
 type hashWriter struct {
@@ -30,6 +31,8 @@ func (h *hashWriter) WriteHeader(code int) {
 	h.ResponseWriter.WriteHeader(code)
 }
 
+// HashEncoder returns function that handles responses with hash sum.
+// It replaces gin writer with hashWriter, that adds hash sum of the response to the headers.
 func HashEncoder(key string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if ctx.GetHeader(internal.HashHeader) != "" {
