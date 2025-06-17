@@ -26,3 +26,5 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+certificates

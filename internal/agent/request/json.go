@@ -9,7 +9,7 @@ import (
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
-func MetricPostJson(hashKey string, metric dto.Metrics, url string) (req *http.Request, err error) {
+func MetricPostJson(hashKey string, cipherService *Cipher, metric dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	data, err := json.Marshal(metric)
 	if err != nil {
@@ -34,14 +34,21 @@ func MetricPostJson(hashKey string, metric dto.Metrics, url string) (req *http.R
 	return
 }
 
-func MetricsPostJson(hashKey string, metrics []dto.Metrics, url string) (req *http.Request, err error) {
+func MetricsPostJson(hashKey string, cipherService *Cipher, metrics []dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := g.Write(data); err != nil {
+	ciphered := data
+	if cipherService != nil {
+		ciphered, err = cipherService.CipherJson(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := g.Write(ciphered); err != nil {
 		return nil, err
 	}
 	if err = g.Close(); err != nil {
@@ -56,5 +63,8 @@ func MetricsPostJson(hashKey string, metrics []dto.Metrics, url string) (req *ht
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	if cipherService != nil {
+		req.Header.Set("Ciphered", "true")
+	}
 	return
 }

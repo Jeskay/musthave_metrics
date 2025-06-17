@@ -27,6 +27,7 @@ import (
 type AgentService struct {
 	workerPool    *worker.WorkerPool[*http.Request]
 	client        *http.Client
+	cipherService *request.Cipher
 	config        *config.AgentConfig
 	JsonAvailable bool
 	storage       internal.Repositories
@@ -47,6 +48,12 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 		config:     conf,
 		workerPool: worker.NewWorkerPool[*http.Request](conf.RateLimit),
 	}
+	cipherService, err := request.NewCipher(conf.PublicKey)
+	if err != nil {
+		service.logger.Error("failed to initialize cipher service")
+		cipherService = nil
+	}
+	service.cipherService = cipherService
 	return service
 }
 
@@ -195,7 +202,7 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 				svc.logger.Error(err.Error())
 				return
 			}
-			rj, err := request.MetricPostJson(metricName, metric, url)
+			rj, err := request.MetricPostJson(svc.config.HashKey, svc.cipherService, metric, url)
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
@@ -211,7 +218,7 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 // into batch HTTP requests of specified size to send to the server.
 func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
 	batch := make([]dto.Metrics, 0)
-	url := svc.serverAddr + "/updates/"
+	url := svc.serverAddr + "/updates"
 	for i, metricName := range metrics {
 		metric, ok := svc.storage.Get(metricName)
 		if !ok {
@@ -219,7 +226,7 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 		}
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
-			r, err := request.MetricsPostJson(svc.config.HashKey, batch, url)
+			r, err := request.MetricsPostJson(svc.config.HashKey, svc.cipherService, batch, url)
 			if err != nil {
 				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
 				continue
@@ -230,7 +237,7 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 		}
 	}
 	if len(batch) > 0 {
-		if r, err := request.MetricsPostJson(svc.config.HashKey, batch, url); err == nil {
+		if r, err := request.MetricsPostJson(svc.config.HashKey, svc.cipherService, batch, url); err == nil {
 			requests <- r
 		}
 	}

@@ -74,7 +74,7 @@ func main() {
 
 	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, storage)
 
-	r := routes.Init(conf.HashKey, service, t)
+	r := routes.Init(conf, service, t)
 
 	r.Run(conf.Address)
 	service.StartSaving()
@@ -85,6 +85,7 @@ func init() {
 	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
 	flag.StringVar(&conf.DBConnection, "d", "", "database connection string")
 	flag.StringVar(&conf.HashKey, "k", "", "secret hash key")
+	flag.StringVar(&conf.TLSPrivate, "crypto-key", "", "path to cryptographic key file")
 	flag.Func("f", "storage file location", func(s string) error {
 		if len(s) == 0 {
 			return nil

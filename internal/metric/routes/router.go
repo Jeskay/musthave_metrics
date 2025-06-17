@@ -6,19 +6,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
 	"github.com/Jeskay/musthave_metrics/internal/metric/middleware"
 )
 
-func Init(hashKey string, svc *metric.MetricService, template *template.Template) *gin.Engine {
+func Init(config *config.ServerConfig, svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
 	r.Use(middleware.Logger(svc.Logger))
-	r.Use(middleware.HashDecoder(hashKey))
-	r.Use(middleware.HashEncoder(hashKey))
+	r.Use(middleware.HashDecoder(config.HashKey))
+	r.Use(middleware.HashEncoder(config.HashKey))
 	r.Use(middleware.GzipDecoder())
 	r.Use(middleware.NewGzipHandler().Handle)
+	if privateKey, err := config.LoadPrivateKey(); err == nil && privateKey != nil {
+		r.Use(middleware.Decipher(privateKey))
+	}
 
 	v1 := r.Group("/update")
 	{
