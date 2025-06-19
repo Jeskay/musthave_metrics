@@ -10,13 +10,14 @@ import (
 )
 
 type ServerConfig struct {
-	TLSPrivate   string `env:"CRYPTO_KEY"`
-	Address      string `env:"ADDRESS"`
-	SaveInterval int    `env:"STORE_INTERVAL"`
-	StoragePath  string `env:"FILE_STORAGE_PATH"`
-	DBConnection string `env:"DATABASE_DSN"`
-	Restore      bool   `env:"RESTORE"`
-	HashKey      string `env:"KEY"`
+	TLSPrivate   string `env:"CRYPTO_KEY" json:"crypto_key"`
+	Address      string `env:"ADDRESS" json:"address"`
+	SaveInterval int    `env:"STORE_INTERVAL" json:"store_interval"`
+	StoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DBConnection string `env:"DATABASE_DSN" json:"database_dsn"`
+	Restore      bool   `env:"RESTORE" json:"restore"`
+	HashKey      string `env:"KEY" json:"key"`
+	Config       string `env:"CONFIG"`
 }
 
 func (cfg *ServerConfig) LoadPrivateKey() (*rsa.PrivateKey, error) {
@@ -31,13 +32,62 @@ func (cfg *ServerConfig) LoadPrivateKey() (*rsa.PrivateKey, error) {
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 
+func (confFirst *ServerConfig) Merge(confSecond *ServerConfig) {
+	if confFirst.TLSPrivate == "" {
+		confFirst.TLSPrivate = confSecond.TLSPrivate
+	}
+	if confFirst.Address == "" {
+		confFirst.Address = confSecond.Address
+	}
+	if confFirst.SaveInterval == 300 {
+		confFirst.SaveInterval = confSecond.SaveInterval
+	}
+	if confFirst.StoragePath == "" {
+		confFirst.StoragePath = confSecond.StoragePath
+	}
+	if confFirst.DBConnection == "" {
+		confFirst.DBConnection = confSecond.DBConnection
+	}
+	if confFirst.Restore == true {
+		confFirst.Restore = confSecond.Restore
+	}
+	if confFirst.HashKey == "" {
+		confFirst.HashKey = confSecond.HashKey
+	}
+	if confFirst.Config == "" {
+		confFirst.Config = confSecond.Config
+	}
+}
+
 type AgentConfig struct {
-	PublicKey      string `env:"CRYPTO_KEY"`
-	Address        string `env:"ADDRESS"`
-	ReportInterval int    `env:"REPORT_INTERVAL"`
-	PollInterval   int    `env:"POLL_INTERVAL"`
-	RateLimit      int    `env:"RATE_LIMIT"`
-	HashKey        string `env:"KEY"`
+	PublicKey      string `env:"CRYPTO_KEY" json:"public_key"`
+	Address        string `env:"ADDRESS" json:"address"`
+	ReportInterval int    `env:"REPORT_INTERVAL" json:"report_interval"`
+	PollInterval   int    `env:"POLL_INTERVAL" json:"poll_interval"`
+	RateLimit      int    `env:"RATE_LIMIT" json:"rate_limit"`
+	HashKey        string `env:"KEY" json:"key"`
+	Config         string `env:"CONFIG"`
+}
+
+func (confFirst *AgentConfig) Merge(confSecond *AgentConfig) {
+	if confFirst.Address == "" {
+		confFirst.Address = confSecond.Address
+	}
+	if confFirst.HashKey == "" {
+		confFirst.HashKey = confSecond.HashKey
+	}
+	if confFirst.PublicKey == "" {
+		confFirst.PublicKey = confSecond.PublicKey
+	}
+	if confFirst.PollInterval == -1 {
+		confFirst.PollInterval = confSecond.PollInterval
+	}
+	if confFirst.RateLimit == -1 {
+		confFirst.RateLimit = confSecond.RateLimit
+	}
+	if confFirst.ReportInterval == -1 {
+		confFirst.ReportInterval = confSecond.ReportInterval
+	}
 }
 
 func (cfg *AgentConfig) GetReportInterval() time.Duration {

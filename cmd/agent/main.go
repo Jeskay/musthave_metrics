@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,7 +21,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
-var conf = config.NewAgentConfig()
+var conf *config.AgentConfig
 
 var buildVersion string
 var buildDate string
@@ -63,11 +64,33 @@ func main() {
 }
 
 func init() {
-	flag.IntVar(&conf.ReportInterval, "r", 10, "report frequency in seconds")
-	flag.IntVar(&conf.RateLimit, "l", 1, "amount of concurrent requests to server")
-	flag.StringVar(&conf.HashKey, "k", "", "secret hash key")
-	flag.StringVar(&conf.PublicKey, "crypto-key", "", "path to cryptographic key file")
-	flag.IntVar(&conf.PollInterval, "p", 2, "poll frequency in seconds")
+	confParam := loadParams()
+	if err := env.Parse(confParam); err != nil {
+		log.Fatal(err)
+	}
+	if confParam.Config != "" {
+		b, err := os.ReadFile(confParam.Config)
+		if err != nil {
+			return
+		}
+		var confJSON = config.NewAgentConfig()
+		err = json.Unmarshal(b, confJSON)
+		if err != nil {
+			return
+		}
+		confParam.Merge(confJSON)
+	}
+	conf = confParam
+}
+
+func loadParams() *config.AgentConfig {
+	var paramCfg = config.NewAgentConfig()
+	flag.IntVar(&paramCfg.ReportInterval, "r", 10, "report frequency in seconds")
+	flag.IntVar(&paramCfg.RateLimit, "l", 1, "amount of concurrent requests to server")
+	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
+	flag.StringVar(&paramCfg.PublicKey, "crypto-key", "", "path to cryptographic key file")
+	flag.StringVar(&paramCfg.Config, "config", "", "path to configuration file")
+	flag.IntVar(&paramCfg.PollInterval, "p", 2, "poll frequency in seconds")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
 			return nil
@@ -76,12 +99,9 @@ func init() {
 		if !ok {
 			return errors.New("invalid address format")
 		}
-		conf.Address = s
+		paramCfg.Address = s
 		return err
 	})
 	flag.Parse()
-
-	if err := env.Parse(conf); err != nil {
-		log.Fatal(err)
-	}
+	return paramCfg
 }

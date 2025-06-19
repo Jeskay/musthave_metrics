@@ -2,12 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -25,7 +27,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
-var conf = config.NewServerConfig()
+var conf *config.ServerConfig
 
 var buildVersion string
 var buildDate string
@@ -82,37 +84,23 @@ func main() {
 }
 
 func init() {
-	flag.IntVar(&conf.SaveInterval, "i", conf.SaveInterval, "save to storage interval")
-	flag.StringVar(&conf.DBConnection, "d", "", "database connection string")
-	flag.StringVar(&conf.HashKey, "k", "", "secret hash key")
-	flag.StringVar(&conf.TLSPrivate, "crypto-key", "", "path to cryptographic key file")
-	flag.Func("f", "storage file location", func(s string) error {
-		if len(s) == 0 {
-			return nil
-		}
-		if !util.IsValidPath(s) {
-			return errors.New("invalid path format")
-		}
-		conf.StoragePath = s
-		return nil
-	})
-	flag.BoolVar(&conf.Restore, "r", conf.Restore, "load values from existing file on start")
-	flag.Func("a", "server address", func(s string) error {
-		if len(s) == 0 {
-			return nil
-		}
-		ok, err := regexp.Match(`[^\:]*:[0-9]{4}`, []byte(s))
-		if !ok {
-			return errors.New("invalid address format")
-		}
-		conf.Address = s
-		return err
-	})
-
-	flag.Parse()
-	if err := env.Parse(conf); err != nil {
+	confParam := loadParams()
+	if err := env.Parse(confParam); err != nil {
 		log.Fatal(err)
 	}
+	if confParam.Config != "" {
+		b, err := os.ReadFile(confParam.Config)
+		if err != nil {
+			return
+		}
+		var confJSON = config.NewServerConfig()
+		err = json.Unmarshal(b, confJSON)
+		if err != nil {
+			return
+		}
+		confParam.Merge(confJSON)
+	}
+	conf = confParam
 }
 
 func loadTemplate() (*template.Template, error) {
@@ -131,4 +119,39 @@ func loadTemplate() (*template.Template, error) {
 		}
 	}
 	return t, nil
+}
+
+func loadParams() *config.ServerConfig {
+	var paramCfg = config.NewServerConfig()
+
+	flag.IntVar(&paramCfg.SaveInterval, "i", paramCfg.SaveInterval, "save to storage interval")
+	flag.StringVar(&paramCfg.DBConnection, "d", "", "database connection string")
+	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
+	flag.StringVar(&paramCfg.TLSPrivate, "crypto-key", "", "path to cryptographic key file")
+	flag.StringVar(&paramCfg.Config, "config", "", "path to configuration file")
+	flag.Func("f", "storage file location", func(s string) error {
+		if len(s) == 0 {
+			return nil
+		}
+		if !util.IsValidPath(s) {
+			return errors.New("invalid path format")
+		}
+		paramCfg.StoragePath = s
+		return nil
+	})
+	flag.BoolVar(&paramCfg.Restore, "r", paramCfg.Restore, "load values from existing file on start")
+	flag.Func("a", "server address", func(s string) error {
+		if len(s) == 0 {
+			return nil
+		}
+		ok, err := regexp.Match(`[^\:]*:[0-9]{4}`, []byte(s))
+		if !ok {
+			return errors.New("invalid address format")
+		}
+		paramCfg.Address = s
+		return err
+	})
+
+	flag.Parse()
+	return paramCfg
 }
