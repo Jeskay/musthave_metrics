@@ -59,6 +59,7 @@ func (s *MetricService) Close() {
 	if !s.databaseAccessible() {
 		s.close <- struct{}{}
 	}
+	s.saveMetrics()
 }
 
 // StartSaving function starts metric saving goroutine.

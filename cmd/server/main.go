@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,9 +10,12 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/caarlos0/env"
@@ -34,7 +38,6 @@ var buildDate string
 var buildCommit string
 
 func main() {
-	var storage internal.Repositories
 
 	prof := profile.Start(profile.MemProfile)
 	time.AfterFunc(time.Second*30, prof.Stop)
@@ -57,9 +60,25 @@ func main() {
 		zapL.Fatal("failed to load templates", zap.Error(err))
 	}
 
+	service := initHelper(conf, zapL)
+
+	r := routes.Init(conf, service, t)
+	go func() {
+		if err := r.Run(conf.Address); err != nil && err != http.ErrServerClosed {
+			zapL.Fatal("server stopped", zap.Error(err))
+		}
+	}()
+	service.StartSaving()
+
+	shutdownHelper(context.Background(), service, zapL)
+}
+
+func initHelper(conf *config.ServerConfig, logger *zap.Logger) *metric.MetricService {
+	var storage internal.Repositories
+
 	fs, err := db.NewFileStorage(conf.StoragePath)
 	if err != nil {
-		zapL.Fatal("failed to init file storage", zap.Error(err))
+		logger.Fatal("failed to init file storage", zap.Error(err))
 	}
 
 	if conf.DBConnection == "" {
@@ -67,20 +86,26 @@ func main() {
 	} else {
 		database, err := sql.Open("pgx", conf.DBConnection)
 		if err != nil {
-			zapL.Fatal("failed to connect to database", zap.Error(err))
+			logger.Fatal("failed to connect to database", zap.Error(err))
 		}
-		if storage, err = db.NewPostgresStorage(database, zapslog.NewHandler(zapL.Core(), nil)); err != nil {
-			zapL.Fatal("failed to init database", zap.Error(err))
+		if storage, err = db.NewPostgresStorage(database, zapslog.NewHandler(logger.Core(), nil)); err != nil {
+			logger.Fatal("failed to init database", zap.Error(err))
 		}
 	}
+	return metric.NewMetricService(*conf, zapslog.NewHandler(logger.Core(), nil), fs, storage)
+}
 
-	service := metric.NewMetricService(*conf, zapslog.NewHandler(zapL.Core(), nil), fs, storage)
+func shutdownHelper(ctx context.Context, service *metric.MetricService, logger *zap.Logger) {
+	sig := make(chan os.Signal, 1)
 
-	r := routes.Init(conf, service, t)
-
-	r.Run(conf.Address)
-	service.StartSaving()
-	defer service.Close()
+	signal.Notify(sig, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT)
+	<-sig
+	logger.Info("initiating server shutdown...")
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	service.Close()
+	<-ctx.Done()
+	logger.Info("server shutting down")
 }
 
 func init() {

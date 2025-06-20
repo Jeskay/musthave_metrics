@@ -101,12 +101,14 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 		return nil
 	}
 	quit := make(chan struct{})
+	var finishWg sync.WaitGroup
 	svc.updateTick = time.NewTicker(interval)
 	go func() {
 
 	loop:
 		for {
 			reqs := make(chan *http.Request, svc.config.RateLimit)
+			finishWg.Add(1)
 			go func() {
 				if svc.JsonAvailable {
 					svc.PrepareMetricsBatch(metricMainList, reqs, 8)
@@ -115,6 +117,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 				}
 				svc.PrepareMetrics(metricSecondaryList, reqs)
 				close(reqs)
+				finishWg.Done()
 			}()
 
 			go svc.SendMetrics(reqs)
@@ -124,6 +127,7 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 				continue
 			case <-quit:
 				svc.updateTick.Stop()
+				finishWg.Wait()
 				break loop
 
 			}
