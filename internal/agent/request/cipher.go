@@ -38,7 +38,7 @@ func NewCipher(publicKeyPath string) (*Cipher, error) {
 	}
 	block, _ := pem.Decode(pubPem)
 	if block == nil {
-		return nil, errors.New("Failed to decode public key")
+		return nil, errors.New("failed to decode public key")
 	}
 
 	pub, _ := x509.ParsePKIXPublicKey(block.Bytes)
@@ -48,5 +48,5 @@ func NewCipher(publicKeyPath string) (*Cipher, error) {
 			hash:      sha256.New(),
 		}, nil
 	}
-	return nil, errors.New("Invalid public key format")
+	return nil, errors.New("invalid public key format")
 }

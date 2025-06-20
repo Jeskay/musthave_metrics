@@ -32,30 +32,28 @@ func (cfg *ServerConfig) LoadPrivateKey() (*rsa.PrivateKey, error) {
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 
-func (confFirst *ServerConfig) Merge(confSecond *ServerConfig) {
-	if confFirst.TLSPrivate == "" {
-		confFirst.TLSPrivate = confSecond.TLSPrivate
+func (cfg *ServerConfig) Merge(cfgMerge *ServerConfig) {
+	if cfg.TLSPrivate == "" {
+		cfg.TLSPrivate = cfgMerge.TLSPrivate
 	}
-	if confFirst.Address == "" {
-		confFirst.Address = confSecond.Address
+	if cfg.Address == "" {
+		cfg.Address = cfgMerge.Address
 	}
-	if confFirst.SaveInterval == 300 {
-		confFirst.SaveInterval = confSecond.SaveInterval
+	if cfg.SaveInterval == 300 {
+		cfg.SaveInterval = cfgMerge.SaveInterval
 	}
-	if confFirst.StoragePath == "" {
-		confFirst.StoragePath = confSecond.StoragePath
+	if cfg.StoragePath == "" {
+		cfg.StoragePath = cfgMerge.StoragePath
 	}
-	if confFirst.DBConnection == "" {
-		confFirst.DBConnection = confSecond.DBConnection
+	if cfg.DBConnection == "" {
+		cfg.DBConnection = cfgMerge.DBConnection
 	}
-	if confFirst.Restore == true {
-		confFirst.Restore = confSecond.Restore
+	cfg.Restore = cfgMerge.Restore
+	if cfg.HashKey == "" {
+		cfg.HashKey = cfgMerge.HashKey
 	}
-	if confFirst.HashKey == "" {
-		confFirst.HashKey = confSecond.HashKey
-	}
-	if confFirst.Config == "" {
-		confFirst.Config = confSecond.Config
+	if cfg.Config == "" {
+		cfg.Config = cfgMerge.Config
 	}
 }
 
