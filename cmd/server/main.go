@@ -98,7 +98,7 @@ func initHelper(conf *config.ServerConfig, logger *zap.Logger) *metric.MetricSer
 func shutdownHelper(ctx context.Context, service *metric.MetricService, logger *zap.Logger) {
 	sig := make(chan os.Signal, 1)
 
-	signal.Notify(sig, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT)
+	signal.Notify(sig, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 	<-sig
 	logger.Info("initiating server shutdown...")
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
