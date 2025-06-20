@@ -67,24 +67,24 @@ type AgentConfig struct {
 	Config         string `env:"CONFIG"`
 }
 
-func (confFirst *AgentConfig) Merge(confSecond *AgentConfig) {
-	if confFirst.Address == "" {
-		confFirst.Address = confSecond.Address
+func (cfg *AgentConfig) Merge(cfgMerge *AgentConfig) {
+	if cfg.Address == "" {
+		cfg.Address = cfgMerge.Address
 	}
-	if confFirst.HashKey == "" {
-		confFirst.HashKey = confSecond.HashKey
+	if cfg.HashKey == "" {
+		cfg.HashKey = cfgMerge.HashKey
 	}
-	if confFirst.PublicKey == "" {
-		confFirst.PublicKey = confSecond.PublicKey
+	if cfg.PublicKey == "" {
+		cfg.PublicKey = cfgMerge.PublicKey
 	}
-	if confFirst.PollInterval == -1 {
-		confFirst.PollInterval = confSecond.PollInterval
+	if cfg.PollInterval == -1 {
+		cfg.PollInterval = cfgMerge.PollInterval
 	}
-	if confFirst.RateLimit == -1 {
-		confFirst.RateLimit = confSecond.RateLimit
+	if cfg.RateLimit == -1 {
+		cfg.RateLimit = cfgMerge.RateLimit
 	}
-	if confFirst.ReportInterval == -1 {
-		confFirst.ReportInterval = confSecond.ReportInterval
+	if cfg.ReportInterval == -1 {
+		cfg.ReportInterval = cfgMerge.ReportInterval
 	}
 }
 
