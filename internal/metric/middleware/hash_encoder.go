@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 
@@ -11,20 +12,18 @@ import (
 
 type hashWriter struct {
 	gin.ResponseWriter
+	payload *bytes.Buffer
 	hashKey string
 }
 
 func (h *hashWriter) WriteString(s string) (int, error) {
-	return h.Write([]byte(s))
+	h.payload.Write([]byte(s))
+	return h.ResponseWriter.Write([]byte(s))
 }
 
 func (h *hashWriter) Write(data []byte) (int, error) {
-	hashed, err := hashBytes(data, h.hashKey)
-	if err != nil {
-		return 0, err
-	}
-	h.Header().Add(internal.HashHeader, hex.EncodeToString(hashed))
-	return h.Write(data)
+	h.payload.Write(data)
+	return h.ResponseWriter.Write(data)
 }
 
 func (h *hashWriter) WriteHeader(code int) {
@@ -35,10 +34,17 @@ func (h *hashWriter) WriteHeader(code int) {
 // It replaces gin writer with hashWriter, that adds hash sum of the response to the headers.
 func HashEncoder(key string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if ctx.GetHeader(internal.HashHeader) != "" {
-			ctx.Writer = &hashWriter{ctx.Writer, key}
+		if ctx.GetHeader(internal.HashHeader) == "" {
+			ctx.Next()
+			return
 		}
+		h := &hashWriter{ctx.Writer, &bytes.Buffer{}, key}
 		ctx.Next()
+		hashed, err := hashBytes(h.payload.Bytes(), h.hashKey)
+		if err != nil {
+			return
+		}
+		h.Header().Add(internal.HashHeader, hex.EncodeToString(hashed))
 	}
 }
 
