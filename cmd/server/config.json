@@ -1,0 +1,9 @@
+{
+    "crypto_key": "",
+    "address": "",
+    "store_interval": 300,
+    "file_storage_path": "",
+    "database_dsn": "",
+    "restore": true,
+    "key": ""
+}

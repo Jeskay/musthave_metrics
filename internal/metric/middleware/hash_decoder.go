@@ -28,6 +28,7 @@ func HashDecoder(key string) gin.HandlerFunc {
 				ctx.AbortWithStatus(http.StatusBadRequest)
 				return
 			}
+			ctx.Request.Body.Close()
 			ctx.Set(gin.BodyBytesKey, payload)
 			hexData, err := hex.DecodeString(hash)
 			if err != nil {
@@ -43,6 +44,7 @@ func HashDecoder(key string) gin.HandlerFunc {
 				ctx.AbortWithStatus(http.StatusBadRequest)
 				return
 			}
+			ctx.Request.Body = io.NopCloser(bytes.NewBuffer(payload))
 		}
 		ctx.Next()
 	}

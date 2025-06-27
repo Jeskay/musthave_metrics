@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,7 +21,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
-var conf = config.NewAgentConfig()
+var conf *config.AgentConfig
 
 var buildVersion string
 var buildDate string
@@ -42,7 +43,7 @@ func main() {
 
 	fmt.Printf("Build version: %s \nBuild date: %s \nBuild commit: %s \n", buildVersion, buildDate, buildCommit)
 
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	client := &http.Client{
 		Timeout: 6 * time.Second,
 	}
@@ -63,10 +64,36 @@ func main() {
 }
 
 func init() {
-	flag.IntVar(&conf.ReportInterval, "r", 10, "report frequency in seconds")
-	flag.IntVar(&conf.RateLimit, "l", 1, "amount of concurrent requests to server")
-	flag.StringVar(&conf.HashKey, "k", "", "secret hash key")
-	flag.IntVar(&conf.PollInterval, "p", 2, "poll frequency in seconds")
+	confParam := loadParams()
+	if err := env.Parse(confParam); err != nil {
+		log.Fatal(err)
+	}
+	if confParam.Config != "" {
+		b, err := os.ReadFile(confParam.Config)
+		if err != nil {
+			log.Println("failed to read config file: ", err)
+			return
+		}
+		var confJSON = config.NewAgentConfig()
+		err = json.Unmarshal(b, confJSON)
+		if err != nil {
+			log.Println("failed to read config file: ", err)
+			return
+		}
+		confParam.Merge(confJSON)
+	}
+	conf = confParam
+}
+
+func loadParams() *config.AgentConfig {
+	var paramCfg = config.NewAgentConfig()
+
+	flag.IntVar(&paramCfg.ReportInterval, "r", 10, "report frequency in seconds")
+	flag.IntVar(&paramCfg.RateLimit, "l", 1, "amount of concurrent requests to server")
+	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
+	flag.StringVar(&paramCfg.PublicKey, "crypto-key", "", "path to cryptographic key file")
+	flag.StringVar(&paramCfg.Config, "config", "", "path to configuration file")
+	flag.IntVar(&paramCfg.PollInterval, "p", 2, "poll frequency in seconds")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
 			return nil
@@ -75,12 +102,11 @@ func init() {
 		if !ok {
 			return errors.New("invalid address format")
 		}
-		conf.Address = s
+		paramCfg.Address = s
 		return err
 	})
-	flag.Parse()
-
-	if err := env.Parse(conf); err != nil {
-		log.Fatal(err)
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		log.Fatalln("invalid arguments", err)
 	}
+	return paramCfg
 }
