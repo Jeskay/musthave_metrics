@@ -71,11 +71,13 @@ func init() {
 	if confParam.Config != "" {
 		b, err := os.ReadFile(confParam.Config)
 		if err != nil {
+			log.Println("failed to read config file: ", err)
 			return
 		}
 		var confJSON = config.NewAgentConfig()
 		err = json.Unmarshal(b, confJSON)
 		if err != nil {
+			log.Println("failed to read config file: ", err)
 			return
 		}
 		confParam.Merge(confJSON)
@@ -85,6 +87,7 @@ func init() {
 
 func loadParams() *config.AgentConfig {
 	var paramCfg = config.NewAgentConfig()
+
 	flag.IntVar(&paramCfg.ReportInterval, "r", 10, "report frequency in seconds")
 	flag.IntVar(&paramCfg.RateLimit, "l", 1, "amount of concurrent requests to server")
 	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
@@ -102,6 +105,8 @@ func loadParams() *config.AgentConfig {
 		paramCfg.Address = s
 		return err
 	})
-	flag.Parse()
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		log.Fatalln("invalid arguments", err)
+	}
 	return paramCfg
 }

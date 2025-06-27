@@ -41,7 +41,10 @@ func NewCipher(publicKeyPath string) (*Cipher, error) {
 		return nil, errors.New("failed to decode public key")
 	}
 
-	pub, _ := x509.ParsePKIXPublicKey(block.Bytes)
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
 	if key, ok := pub.(*rsa.PublicKey); ok {
 		return &Cipher{
 			publicKey: key,
