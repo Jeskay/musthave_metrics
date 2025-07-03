@@ -10,14 +10,15 @@ import (
 )
 
 type ServerConfig struct {
-	TLSPrivate   string `env:"CRYPTO_KEY" json:"crypto_key"`
-	Address      string `env:"ADDRESS" json:"address"`
-	SaveInterval int    `env:"STORE_INTERVAL" json:"store_interval"`
-	StoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
-	DBConnection string `env:"DATABASE_DSN" json:"database_dsn"`
-	Restore      bool   `env:"RESTORE" json:"restore"`
-	HashKey      string `env:"KEY" json:"key"`
-	Config       string `env:"CONFIG"`
+	TLSPrivate    string `env:"CRYPTO_KEY" json:"crypto_key"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	Address       string `env:"ADDRESS" json:"address"`
+	SaveInterval  int    `env:"STORE_INTERVAL" json:"store_interval"`
+	StoragePath   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DBConnection  string `env:"DATABASE_DSN" json:"database_dsn"`
+	Restore       bool   `env:"RESTORE" json:"restore"`
+	HashKey       string `env:"KEY" json:"key"`
+	Config        string `env:"CONFIG"`
 }
 
 func (cfg *ServerConfig) LoadPrivateKey() (*rsa.PrivateKey, error) {

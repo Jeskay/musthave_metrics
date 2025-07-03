@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"runtime"
 	"sync"
@@ -29,6 +30,7 @@ type AgentService struct {
 	client        *http.Client
 	cipherService *request.Cipher
 	config        *config.AgentConfig
+	ipAddress     net.IP
 	JsonAvailable bool
 	storage       internal.Repositories
 	monitorTick   *time.Ticker
@@ -53,7 +55,13 @@ func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.
 		service.logger.Error("failed to initialize cipher service")
 		cipherService = nil
 	}
+	ip, err := util.GetSelfIP()
+	if err != nil {
+		service.logger.Error("unknown issue when establishing logical connection to DNS", err)
+	}
+
 	service.cipherService = cipherService
+	service.ipAddress = ip
 	return service
 }
 
@@ -206,7 +214,7 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 				svc.logger.Error(err.Error())
 				return
 			}
-			rj, err := request.MetricPostJson(svc.config.HashKey, svc.cipherService, metric, url)
+			rj, err := request.MetricPostJson(svc.ipAddress, svc.config.HashKey, svc.cipherService, metric, url)
 			if err != nil {
 				svc.logger.Error(err.Error())
 				return
@@ -230,7 +238,7 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 		}
 		batch = append(batch, metric)
 		if (i+1)%batchSize == 0 {
-			r, err := request.MetricsPostJson(svc.config.HashKey, svc.cipherService, batch, url)
+			r, err := request.MetricsPostJson(svc.ipAddress, svc.config.HashKey, svc.cipherService, batch, url)
 			if err != nil {
 				svc.logger.Error("batch post response failed", slog.String("error", err.Error()))
 				continue
@@ -241,7 +249,7 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 		}
 	}
 	if len(batch) > 0 {
-		if r, err := request.MetricsPostJson(svc.config.HashKey, svc.cipherService, batch, url); err == nil {
+		if r, err := request.MetricsPostJson(svc.ipAddress, svc.config.HashKey, svc.cipherService, batch, url); err == nil {
 			requests <- r
 		}
 	}

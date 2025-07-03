@@ -2,6 +2,7 @@ package routes
 
 import (
 	"html/template"
+	"net"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,12 @@ import (
 func Init(config *config.ServerConfig, svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
+	if config.TrustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(config.TrustedSubnet)
+		if err == nil {
+			r.Use(middleware.SubnetChecker(subnet))
+		}
+	}
 	r.Use(middleware.Logger(svc.Logger))
 	r.Use(middleware.HashDecoder(config.HashKey))
 	r.Use(middleware.HashEncoder(config.HashKey))

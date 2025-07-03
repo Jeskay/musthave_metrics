@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"net"
 	"net/http"
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 )
 
-func MetricPostJson(hashKey string, cipherService *Cipher, metric dto.Metrics, url string) (req *http.Request, err error) {
+func MetricPostJson(selfIP net.IP, hashKey string, cipherService *Cipher, metric dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	data, err := json.Marshal(metric)
 	if err != nil {
@@ -31,10 +32,11 @@ func MetricPostJson(hashKey string, cipherService *Cipher, metric dto.Metrics, u
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("X-Real-IP", selfIP.String())
 	return
 }
 
-func MetricsPostJson(hashKey string, cipherService *Cipher, metrics []dto.Metrics, url string) (req *http.Request, err error) {
+func MetricsPostJson(selfIP net.IP, hashKey string, cipherService *Cipher, metrics []dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	data, err := json.Marshal(metrics)
@@ -66,5 +68,6 @@ func MetricsPostJson(hashKey string, cipherService *Cipher, metrics []dto.Metric
 	if cipherService != nil {
 		req.Header.Set("Ciphered", "true")
 	}
+	req.Header.Set("X-Real-IP", selfIP.String())
 	return
 }
