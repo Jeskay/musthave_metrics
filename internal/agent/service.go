@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,6 +15,9 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/mem"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
@@ -22,33 +26,44 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 	"github.com/Jeskay/musthave_metrics/pkg/worker"
+	pb "github.com/Jeskay/musthave_metrics/protos"
 )
 
 // AgentService struct provides the functionality of collecting and sending metric data to the server.
 type AgentService struct {
-	workerPool    *worker.WorkerPool[*http.Request]
-	client        *http.Client
-	cipherService *request.Cipher
-	config        *config.AgentConfig
-	ipAddress     net.IP
-	JsonAvailable bool
-	storage       internal.Repositories
-	monitorTick   *time.Ticker
-	updateTick    *time.Ticker
-	pollCount     int64
-	serverAddr    string
-	logger        *slog.Logger
+	workerPoolHTTP *worker.WorkerPool[*http.Request]
+	workerPoolGRPC *worker.WorkerPool[*pb.Metric]
+	clientHTTP     *http.Client
+	clientGRPC     pb.ServerClient
+	cipherService  *request.Cipher
+	config         *config.AgentConfig
+	ipAddress      net.IP
+	JsonAvailable  bool
+	storage        internal.Repositories
+	monitorTick    *time.Ticker
+	updateTick     *time.Ticker
+	pollCount      int64
+	serverAddr     string
+	logger         *slog.Logger
 }
 
 // NewAgentService function initializes and returns new instance of AgentService.
 func NewAgentService(client *http.Client, conf *config.AgentConfig, logger slog.Handler) *AgentService {
 	service := &AgentService{
-		client:     client,
-		storage:    db.NewMemStorage(),
-		serverAddr: "http://" + conf.Address,
-		logger:     slog.New(logger),
-		config:     conf,
-		workerPool: worker.NewWorkerPool[*http.Request](conf.RateLimit),
+		clientHTTP:     client,
+		storage:        db.NewMemStorage(),
+		serverAddr:     "http://" + conf.Address,
+		logger:         slog.New(logger),
+		config:         conf,
+		workerPoolHTTP: worker.NewWorkerPool[*http.Request](conf.RateLimit),
+		workerPoolGRPC: worker.NewWorkerPool[*pb.Metric](conf.RateLimit),
+	}
+	if conf.GRPC {
+		conn, err := grpc.NewClient(conf.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			service.logger.Error("cannot establish grpc connection", err)
+		}
+		service.clientGRPC = pb.NewServerClient(conn)
 	}
 	cipherService, err := request.NewCipher(conf.PublicKey)
 	if err != nil {
@@ -115,20 +130,31 @@ func (svc *AgentService) StartSending(interval time.Duration) chan<- struct{} {
 
 	loop:
 		for {
-			reqs := make(chan *http.Request, svc.config.RateLimit)
 			finishWg.Add(1)
-			go func() {
-				if svc.JsonAvailable {
-					svc.PrepareMetricsBatch(metricMainList, reqs, 8)
-				} else {
-					svc.PrepareMetrics(metricMainList, reqs)
-				}
-				svc.PrepareMetrics(metricSecondaryList, reqs)
-				close(reqs)
-				finishWg.Done()
-			}()
+			if svc.config.GRPC {
+				reqs := make(chan *pb.Metric, svc.config.RateLimit)
+				go func() {
+					svc.PrepareMetricsGRPC(metricMainList, reqs)
+					svc.PrepareMetricsGRPC(metricSecondaryList, reqs)
+					close(reqs)
+					finishWg.Done()
+				}()
+				go svc.SendMetricsGRPC(reqs)
+			} else {
+				reqs := make(chan *http.Request, svc.config.RateLimit)
+				go func() {
+					if svc.JsonAvailable {
+						svc.PrepareMetricsBatch(metricMainList, reqs, 8)
+					} else {
+						svc.PrepareMetrics(metricMainList, reqs)
+					}
+					svc.PrepareMetrics(metricSecondaryList, reqs)
+					close(reqs)
+					finishWg.Done()
+				}()
+				go svc.SendMetrics(reqs)
+			}
 
-			go svc.SendMetrics(reqs)
 			select {
 			case t := <-svc.monitorTick.C:
 				svc.logger.Debug(fmt.Sprintf("Tick at %s", t.String()))
@@ -226,6 +252,22 @@ func (svc *AgentService) PrepareMetrics(metrics []string, requests chan *http.Re
 	wg.Wait()
 }
 
+func (svc *AgentService) PrepareMetricsGRPC(metricNames []string, metrics chan *pb.Metric) {
+	var wg sync.WaitGroup
+	for _, metricName := range metricNames {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			metric, ok := svc.storage.Get(metricName)
+			if !ok {
+				return
+			}
+			metrics <- &pb.Metric{Id: metric.ID, Type: metric.MType, Delta: metric.Delta, Value: metric.Value}
+		}()
+	}
+	wg.Wait()
+}
+
 // PrepareMetricsBatch function assembles metrics data from agent's storage
 // into batch HTTP requests of specified size to send to the server.
 func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *http.Request, batchSize int) {
@@ -257,9 +299,9 @@ func (svc *AgentService) PrepareMetricsBatch(metrics []string, requests chan *ht
 
 // SendMetrics function starts sending of the prepared HTTP requests to metric server.
 func (svc *AgentService) SendMetrics(requests chan *http.Request) {
-	svc.workerPool.Run(requests, func(req *http.Request) {
+	svc.workerPoolHTTP.Run(requests, func(req *http.Request) {
 		err := util.TryRun(func() (err error) {
-			res, err := svc.client.Do(req)
+			res, err := svc.clientHTTP.Do(req)
 			if res != nil {
 				defer res.Body.Close()
 			}
@@ -268,6 +310,25 @@ func (svc *AgentService) SendMetrics(requests chan *http.Request) {
 			}
 			if _, err = io.Copy(io.Discard, res.Body); err != nil {
 				return
+			}
+			return
+		}, util.IsConnectionRefused)
+		if err != nil {
+			svc.logger.Error(err.Error())
+		}
+	})
+}
+
+func (svc *AgentService) SendMetricsGRPC(metrics chan *pb.Metric) {
+	svc.workerPoolGRPC.Run(metrics, func(m *pb.Metric) {
+		err := util.TryRun(func() (err error) {
+			ctx := metadata.AppendToOutgoingContext(context.Background(), "uri", svc.ipAddress.String())
+			res, err := svc.clientGRPC.UpdateMetric(ctx, &pb.UpdateMetricRequest{Metric: m})
+			if err != nil {
+				return
+			}
+			if res != nil {
+				svc.logger.Info("Response", slog.String("Value", res.Value.String()))
 			}
 			return
 		}, util.IsConnectionRefused)

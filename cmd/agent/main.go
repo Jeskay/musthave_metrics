@@ -49,12 +49,14 @@ func main() {
 	}
 	logger := slog.NewTextHandler(os.Stdout, nil)
 	svc := agent.NewAgentService(client, conf, logger)
-	err := util.TryRun(func() error {
-		return svc.CheckAPIAvailability()
-	}, util.IsConnectionRefused)
+	if !conf.GRPC {
+		err := util.TryRun(func() error {
+			return svc.CheckAPIAvailability()
+		}, util.IsConnectionRefused)
 
-	if err != nil {
-		slog.Error(err.Error())
+		if err != nil {
+			slog.Error(err.Error())
+		}
 	}
 	endMonitor = svc.StartMonitoring(conf.GetReportInterval())
 	endSender = svc.StartSending(conf.GetPollInterval())
@@ -93,6 +95,7 @@ func loadParams() *config.AgentConfig {
 	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
 	flag.StringVar(&paramCfg.PublicKey, "crypto-key", "", "path to cryptographic key file")
 	flag.StringVar(&paramCfg.Config, "config", "", "path to configuration file")
+	flag.BoolVar(&paramCfg.GRPC, "grpc", paramCfg.GRPC, "use grpc protocol instead of http")
 	flag.IntVar(&paramCfg.PollInterval, "p", 2, "poll frequency in seconds")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {
