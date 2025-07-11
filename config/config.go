@@ -10,14 +10,16 @@ import (
 )
 
 type ServerConfig struct {
-	TLSPrivate   string `env:"CRYPTO_KEY" json:"crypto_key"`
-	Address      string `env:"ADDRESS" json:"address"`
-	SaveInterval int    `env:"STORE_INTERVAL" json:"store_interval"`
-	StoragePath  string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
-	DBConnection string `env:"DATABASE_DSN" json:"database_dsn"`
-	Restore      bool   `env:"RESTORE" json:"restore"`
-	HashKey      string `env:"KEY" json:"key"`
-	Config       string `env:"CONFIG"`
+	TLSPrivate    string `env:"CRYPTO_KEY" json:"crypto_key"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	Address       string `env:"ADDRESS" json:"address"`
+	SaveInterval  int    `env:"STORE_INTERVAL" json:"store_interval"`
+	StoragePath   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DBConnection  string `env:"DATABASE_DSN" json:"database_dsn"`
+	Restore       bool   `env:"RESTORE" json:"restore"`
+	GRPC          bool   `env:"GRPC" json:"grpc"`
+	HashKey       string `env:"KEY" json:"key"`
+	Config        string `env:"CONFIG"`
 }
 
 func (cfg *ServerConfig) LoadPrivateKey() (*rsa.PrivateKey, error) {
@@ -55,6 +57,9 @@ func (cfg *ServerConfig) Merge(cfgMerge *ServerConfig) {
 	if cfg.Config == "" {
 		cfg.Config = cfgMerge.Config
 	}
+	if !cfg.GRPC {
+		cfg.GRPC = cfgMerge.GRPC
+	}
 }
 
 type AgentConfig struct {
@@ -65,6 +70,7 @@ type AgentConfig struct {
 	RateLimit      int    `env:"RATE_LIMIT" json:"rate_limit"`
 	HashKey        string `env:"KEY" json:"key"`
 	Config         string `env:"CONFIG"`
+	GRPC           bool   `env:"GRPC" json:"grpc"`
 }
 
 func (cfg *AgentConfig) Merge(cfgMerge *AgentConfig) {
@@ -86,6 +92,9 @@ func (cfg *AgentConfig) Merge(cfgMerge *AgentConfig) {
 	if cfg.ReportInterval == -1 {
 		cfg.ReportInterval = cfgMerge.ReportInterval
 	}
+	if !cfg.GRPC {
+		cfg.GRPC = cfgMerge.GRPC
+	}
 }
 
 func (cfg *AgentConfig) GetReportInterval() time.Duration {
@@ -102,6 +111,7 @@ func NewServerConfig() *ServerConfig {
 		SaveInterval: 300,
 		StoragePath:  "/metrics.dat",
 		Restore:      true,
+		GRPC:         false,
 	}
 }
 
@@ -111,5 +121,6 @@ func NewAgentConfig() *AgentConfig {
 		ReportInterval: 2,
 		PollInterval:   10,
 		RateLimit:      1,
+		GRPC:           false,
 	}
 }

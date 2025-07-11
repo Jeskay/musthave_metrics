@@ -1,20 +1,26 @@
-package routes
+package http
 
 import (
 	"html/template"
+	"net"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
-	"github.com/Jeskay/musthave_metrics/internal/metric/handlers"
-	"github.com/Jeskay/musthave_metrics/internal/metric/middleware"
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport/http/handlers"
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport/http/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 func Init(config *config.ServerConfig, svc *metric.MetricService, template *template.Template) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(template)
+	if config.TrustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(config.TrustedSubnet)
+		if err == nil {
+			r.Use(middleware.SubnetChecker(subnet))
+		}
+	}
 	r.Use(middleware.Logger(svc.Logger))
 	r.Use(middleware.HashDecoder(config.HashKey))
 	r.Use(middleware.HashEncoder(config.HashKey))
