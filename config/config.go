@@ -57,7 +57,7 @@ func (cfg *ServerConfig) Merge(cfgMerge *ServerConfig) {
 	if cfg.Config == "" {
 		cfg.Config = cfgMerge.Config
 	}
-	if cfg.GRPC == false {
+	if !cfg.GRPC {
 		cfg.GRPC = cfgMerge.GRPC
 	}
 }
@@ -92,7 +92,7 @@ func (cfg *AgentConfig) Merge(cfgMerge *AgentConfig) {
 	if cfg.ReportInterval == -1 {
 		cfg.ReportInterval = cfgMerge.ReportInterval
 	}
-	if cfg.GRPC == false {
+	if !cfg.GRPC {
 		cfg.GRPC = cfgMerge.GRPC
 	}
 }
