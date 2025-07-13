@@ -29,6 +29,7 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
 	"github.com/Jeskay/musthave_metrics/internal/metric/transport"
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport/grpc/interceptors"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
@@ -68,7 +69,7 @@ func main() {
 			if err != grpc.ErrServerStopped {
 				zapL.Fatal("server stopped", zap.Error(err))
 			}
-		})
+		}, grpc.UnaryInterceptor(interceptors.NewLoggingUnaryInterceptor(service.Logger)))
 	} else {
 		go transport.RunHTTP(conf, t, service, func(err error) {
 			if err != http.ErrServerClosed {

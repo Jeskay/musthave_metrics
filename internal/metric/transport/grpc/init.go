@@ -6,7 +6,6 @@ import (
 	"github.com/Jeskay/musthave_metrics/internal"
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
-	"github.com/Jeskay/musthave_metrics/internal/metric/transport/grpc/interceptors"
 	pb "github.com/Jeskay/musthave_metrics/protos"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -121,9 +120,9 @@ func (s *Server) UpdateMetrics(ctx context.Context, r *pb.UpdateMetricsRequest) 
 	return &pb.MetricsResponse{Metrics: pbMetrics}, nil
 }
 
-func Init(metricService *metric.MetricService) *grpc.Server {
+func Init(metricService *metric.MetricService, options ...grpc.ServerOption) *grpc.Server {
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(interceptors.NewLoggingUnaryInterceptor(metricService.Logger)),
+		options...,
 	)
 	pb.RegisterServerServer(server, &Server{metricService: metricService})
 	return server
