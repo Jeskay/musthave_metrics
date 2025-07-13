@@ -56,7 +56,7 @@ func (s *Server) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*pb.Metrics
 	if err != nil {
 		return nil, err
 	}
-	var metrics []*pb.Metric = make([]*pb.Metric, len(list))
+	metrics := make([]*pb.Metric, len(list))
 	for i, v := range list {
 		metrics[i] = &pb.Metric{Id: v.ID, Delta: v.Delta, Value: v.Value, Type: v.MType}
 	}
