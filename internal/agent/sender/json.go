@@ -1,4 +1,4 @@
-package request
+package sender
 
 import (
 	"bytes"
@@ -8,9 +8,10 @@ import (
 	"net/http"
 
 	dto "github.com/Jeskay/musthave_metrics/internal/Dto"
+	"github.com/Jeskay/musthave_metrics/internal/agent/cipher"
 )
 
-func MetricPostJson(selfIP net.IP, hashKey string, cipherService *Cipher, metric dto.Metrics, url string) (req *http.Request, err error) {
+func MetricPostJson(selfIP net.IP, hashKey string, cipherService *cipher.Cipher, metric dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	data, err := json.Marshal(metric)
 	if err != nil {
@@ -36,7 +37,7 @@ func MetricPostJson(selfIP net.IP, hashKey string, cipherService *Cipher, metric
 	return
 }
 
-func MetricsPostJson(selfIP net.IP, hashKey string, cipherService *Cipher, metrics []dto.Metrics, url string) (req *http.Request, err error) {
+func MetricsPostJson(selfIP net.IP, hashKey string, cipherService *cipher.Cipher, metrics []dto.Metrics, url string) (req *http.Request, err error) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	data, err := json.Marshal(metrics)
