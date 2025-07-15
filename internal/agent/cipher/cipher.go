@@ -1,4 +1,4 @@
-package request
+package cipher
 
 import (
 	"crypto/rand"

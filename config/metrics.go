@@ -1,4 +1,4 @@
-package agent
+package config
 
 var metricMainList = []string{
 	"Alloc",
@@ -36,6 +36,14 @@ var metricSecondaryList = []string{
 	"TotalMemory",
 	"FreeMemory",
 	"CPUutilization1",
+}
+
+func GetPrimaryMetrics() []string {
+	return metricMainList
+}
+
+func GetSecondaryMetrics() []string {
+	return metricSecondaryList
 }
 
 type Metric struct {

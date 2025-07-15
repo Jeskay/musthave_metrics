@@ -15,10 +15,14 @@ import (
 	"time"
 
 	"github.com/caarlos0/env"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal/agent"
+	"github.com/Jeskay/musthave_metrics/internal/agent/sender"
 	"github.com/Jeskay/musthave_metrics/internal/util"
+	pb "github.com/Jeskay/musthave_metrics/protos"
 )
 
 var conf *config.AgentConfig
@@ -44,11 +48,20 @@ func main() {
 	fmt.Printf("Build version: %s \nBuild date: %s \nBuild commit: %s \n", buildVersion, buildDate, buildCommit)
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	client := &http.Client{
-		Timeout: 6 * time.Second,
-	}
 	logger := slog.NewTextHandler(os.Stdout, nil)
-	svc := agent.NewAgentService(client, conf, logger)
+
+	var metricSender sender.MetricSender
+	if conf.GRPC {
+		conn, err := grpc.NewClient(conf.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			slog.Error("cannot establish grpc connection", slog.Attr{Key: "error", Value: slog.AnyValue(err)})
+		}
+		metricSender = sender.NewGRPCSender(pb.NewServerClient(conn), conf, logger, config.GetPrimaryMetrics(), config.GetSecondaryMetrics())
+	} else {
+		metricSender = sender.NewHTTPSender(&http.Client{Timeout: 6 * time.Second}, conf, logger, config.GetPrimaryMetrics(), config.GetSecondaryMetrics())
+	}
+	svc := agent.NewAgentService(metricSender, conf, logger)
+
 	err := util.TryRun(func() error {
 		return svc.CheckAPIAvailability()
 	}, util.IsConnectionRefused)
@@ -93,6 +106,7 @@ func loadParams() *config.AgentConfig {
 	flag.StringVar(&paramCfg.HashKey, "k", "", "secret hash key")
 	flag.StringVar(&paramCfg.PublicKey, "crypto-key", "", "path to cryptographic key file")
 	flag.StringVar(&paramCfg.Config, "config", "", "path to configuration file")
+	flag.BoolVar(&paramCfg.GRPC, "grpc", paramCfg.GRPC, "use grpc protocol instead of http")
 	flag.IntVar(&paramCfg.PollInterval, "p", 2, "poll frequency in seconds")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {

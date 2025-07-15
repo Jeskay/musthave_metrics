@@ -22,12 +22,14 @@ import (
 	"github.com/pkg/profile"
 	"go.uber.org/zap"
 	"go.uber.org/zap/exp/zapslog"
+	"google.golang.org/grpc"
 
 	"github.com/Jeskay/musthave_metrics/config"
 	"github.com/Jeskay/musthave_metrics/internal"
 	"github.com/Jeskay/musthave_metrics/internal/metric"
 	"github.com/Jeskay/musthave_metrics/internal/metric/db"
-	"github.com/Jeskay/musthave_metrics/internal/metric/routes"
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport"
+	"github.com/Jeskay/musthave_metrics/internal/metric/transport/grpc/interceptors"
 	"github.com/Jeskay/musthave_metrics/internal/util"
 )
 
@@ -62,14 +64,20 @@ func main() {
 
 	service := initHelper(conf, zapL)
 
-	r := routes.Init(conf, service, t)
-	go func() {
-		if err := r.Run(conf.Address); err != nil && err != http.ErrServerClosed {
-			zapL.Fatal("server stopped", zap.Error(err))
-		}
-	}()
+	if conf.GRPC {
+		go transport.RunGRPC(conf, service, func(err error) {
+			if err != grpc.ErrServerStopped {
+				zapL.Fatal("server stopped", zap.Error(err))
+			}
+		}, grpc.UnaryInterceptor(interceptors.NewLoggingUnaryInterceptor(service.Logger)))
+	} else {
+		go transport.RunHTTP(conf, t, service, func(err error) {
+			if err != http.ErrServerClosed {
+				zapL.Fatal("server stopped", zap.Error(err))
+			}
+		})
+	}
 	service.StartSaving()
-
 	shutdownHelper(context.Background(), service, zapL)
 }
 
@@ -164,6 +172,7 @@ func loadParams() *config.ServerConfig {
 		paramCfg.StoragePath = s
 		return nil
 	})
+	flag.BoolVar(&paramCfg.GRPC, "grpc", paramCfg.GRPC, "use grpc protocol instead of http")
 	flag.BoolVar(&paramCfg.Restore, "r", paramCfg.Restore, "load values from existing file on start")
 	flag.Func("a", "server address", func(s string) error {
 		if len(s) == 0 {

@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package metric;
+
+option go_package = "./metric";
+
+service Server {
+    rpc UpdateCounterMetric (UpdateCounterRequest) returns (UpdateCounterResponse) {}
+    rpc GetCounterMetric (GetCounterRequest) returns (GetMetricResponse) {}
+    rpc UpdateGaugeMetric (UpdateGaugeRequest) returns (UpdateGaugeResponse) {}
+    rpc GetGaugeMetric (GetGaugeRequest) returns (GetMetricResponse) {}
+    rpc UpdateMetric (UpdateMetricRequest) returns (UpdateMetricResponse) {}
+    rpc GetMetric (GetMetricRequest) returns (GetMetricResponse) {}
+    rpc UpdateMetrics (UpdateMetricsRequest) returns (MetricsResponse) {}
+    rpc ListMetrics(google.protobuf.Empty) returns (MetricsResponse) {}
+    rpc Ping(google.protobuf.Empty) returns(PingResponse) {}
+}
+
+message Metric {
+    string id = 1;
+    string type = 2;
+    optional int64 delta = 3;
+    optional double value = 4;
+}
+
+message PingResponse {
+    bool available = 1;
+}
+
+message UpdateCounterRequest {
+    string name = 1;
+    int64 value = 2;
+}
+
+message UpdateGaugeRequest {
+    string name = 1;
+    double value = 2;
+}
+
+message UpdateMetricRequest {
+    Metric metric = 1;
+}
+
+message UpdateMetricsRequest {
+    repeated Metric metrics = 1;
+}
+
+message GetMetricRequest {
+    Metric metric = 1;
+}
+
+message GetCounterRequest {
+    string name = 1;
+}
+
+message GetGaugeRequest {
+    string name = 1;
+}
+
+message UpdateCounterResponse {
+    string error = 1;
+}
+
+message UpdateGaugeResponse {
+    string error = 1;
+}
+
+message UpdateMetricResponse {
+    string error = 1;
+    Metric value = 2;
+}
+
+message MetricsResponse {
+    string error = 1;
+    repeated Metric metrics = 2;
+}
+
+message GetMetricResponse {
+    string error = 1;
+    optional Metric metric = 2;
+}
